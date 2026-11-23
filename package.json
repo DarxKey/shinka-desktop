@@ -1,0 +1,51 @@
+{
+  "name": "shinka-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Il client per Windows di Shinka.",
+  "author": "Shinka",
+  "type": "module",
+  "main": "out/principale/avvio.js",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "sviluppo": "electron-vite dev",
+    "costruisci": "electron-vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"src/**/*.test.ts\" \"strumenti/**/*.test.mjs\"",
+    "installer": "electron-vite build && electron-builder --win"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "highlight.js": "^11.12.0",
+    "katex": "^0.19.1",
+    "mermaid": "^12.3.0",
+    "node-pty": "^1.1.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
+    "unified": "^11.0.5",
+    "zod": "^4.6.7"
+  },
+  "allowScripts": {
+    "electron@45.4.1": true,
+    "node-pty@1.1.0": true
+  }
+}

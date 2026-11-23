@@ -9,3 +9,6 @@ dist/
 out/
 release/
 *.log
+
+# L'indirizzo del centro proposto al primo avvio: racconta l'installazione
+centro-predefinito.txt
