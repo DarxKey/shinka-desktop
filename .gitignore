@@ -1,0 +1,11 @@
+# Restano nella cartella del progetto, mai in Git (ADR 0008)
+BRIEF.md
+STATO.md
+riferimento/
+
+.codegraph/
+node_modules/
+dist/
+out/
+release/
+*.log
