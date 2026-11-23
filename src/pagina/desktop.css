@@ -1,0 +1,375 @@
+/*
+ * Ciò che Shinka Desktop aggiunge allo stile di Shinka: la schermata del primo accesso, l'avviso
+ * sul collegamento, i terminali di questo PC e il binario che li apre. I colori sono quelli del sito.
+ */
+
+:root {
+  --binario: 40px;
+  --avviso: 0px;
+}
+
+/* Primo accesso */
+
+.primo-accesso .accesso label {
+  margin-top: var(--s-2);
+  font-size: var(--t-ui);
+  color: var(--tenue);
+}
+
+.primo-accesso .accesso label:first-child {
+  margin-top: 0;
+}
+
+.primo-accesso .accesso button {
+  margin-top: var(--s-3);
+  border-color: var(--accento);
+  background: var(--accento);
+  color: var(--su-accento);
+  font-weight: 600;
+}
+
+.avviso-accesso {
+  margin: 0 0 var(--s-4);
+  padding: var(--s-3);
+  border: 1px solid color-mix(in srgb, var(--attesa) 40%, var(--bordo));
+  border-radius: var(--raggio);
+  background: color-mix(in srgb, var(--attesa) 10%, var(--superficie));
+  font-size: var(--t-ui);
+}
+
+.nota-accesso {
+  margin: var(--s-5) 0 0;
+  color: var(--tenue);
+  font-size: var(--t-ui);
+  line-height: 1.5;
+}
+
+/* La cornice: l'interfaccia di Shinka, i terminali e il binario, uno accanto all'altro */
+
+.desktop {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.desktop.con-avviso {
+  --avviso: 28px;
+}
+
+.desktop-corpo {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.desktop-shinka {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.desktop-shinka .guscio,
+.desktop-shinka .principale {
+  height: calc(100dvh - var(--avviso));
+}
+
+.avviso-desktop {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--avviso);
+  margin: 0;
+  padding: 0 var(--s-3);
+  border-bottom: 1px solid var(--bordo);
+  background: color-mix(in srgb, var(--accento) 8%, var(--superficie));
+  color: var(--tenue);
+  font-size: var(--t-piccolo);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.avviso-desktop.scollegato {
+  background: color-mix(in srgb, var(--attesa) 14%, var(--superficie));
+  color: var(--testo);
+}
+
+/* Il binario */
+
+.binario {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-1);
+  width: var(--binario);
+  padding: var(--s-2) 0;
+  border-left: 1px solid var(--bordo);
+  background: var(--sfondo);
+}
+
+.binario button,
+.terminali-comandi button,
+.terminali-chiudi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  border-color: transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tenue);
+}
+
+.binario button {
+  width: 30px;
+  height: 30px;
+}
+
+.binario button:not(:disabled):hover,
+.terminali-comandi button:not(:disabled):hover,
+.terminali-chiudi:not(:disabled):hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--testo) 8%, transparent);
+  color: var(--testo);
+}
+
+.binario button.acceso {
+  background: color-mix(in srgb, var(--accento) 14%, transparent);
+  color: var(--accento);
+}
+
+/* I terminali */
+
+.terminali {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-left: 1px solid var(--bordo);
+  background: #151517;
+}
+
+.terminali[hidden] {
+  display: none;
+}
+
+.terminali-maniglia {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  width: 7px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.terminali-maniglia:hover,
+.terminali.si-trascina .terminali-maniglia {
+  background: color-mix(in srgb, var(--accento) 45%, transparent);
+}
+
+.terminali-testata {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  height: 36px;
+  padding: 0 var(--s-1) 0 var(--s-2);
+  border-bottom: 1px solid var(--bordo);
+  background: var(--sfondo);
+}
+
+.terminali-schede {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.terminali-linguetta {
+  flex: none;
+  display: flex;
+  align-items: center;
+  max-width: 220px;
+  border-radius: 6px;
+  color: var(--tenue);
+}
+
+.terminali-linguetta.in-vista {
+  background: color-mix(in srgb, var(--testo) 9%, transparent);
+  color: var(--testo);
+}
+
+.terminali-linguetta > button[role="tab"] {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+  height: 26px;
+  padding: 0 2px 0 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: var(--t-piccolo);
+  white-space: nowrap;
+}
+
+.terminali-shell {
+  font-weight: 600;
+}
+
+.terminali-dove {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--tenue);
+}
+
+.terminali-quanti {
+  padding: 0 5px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--testo) 12%, transparent);
+  font-size: 0.6875rem;
+}
+
+.terminali-chiudi {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-right: 3px;
+  opacity: 0;
+}
+
+.terminali-linguetta:hover .terminali-chiudi,
+.terminali-linguetta.in-vista .terminali-chiudi,
+.terminali-chiudi:focus-visible {
+  opacity: 1;
+}
+
+.terminali-chiudi svg {
+  width: 12px;
+  height: 12px;
+}
+
+.terminali-comandi {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.terminali-comandi button {
+  width: 26px;
+  height: 26px;
+}
+
+.terminali-menu {
+  position: absolute;
+  z-index: 5;
+  top: 34px;
+  right: var(--s-2);
+  min-width: 190px;
+  margin: 0;
+  padding: var(--s-1);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  background: var(--superficie);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  list-style: none;
+}
+
+.terminali-menu button {
+  width: 100%;
+  min-height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: var(--t-ui);
+  text-align: left;
+}
+
+.terminali-menu button:hover {
+  background: color-mix(in srgb, var(--testo) 8%, transparent);
+}
+
+.terminali-corpo {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Le schede non in vista restano al loro posto, nascoste: le shell tengono le loro misure. */
+.terminali-scheda {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 1px;
+  background: #2c2c30;
+  visibility: hidden;
+}
+
+.terminali-scheda.in-vista {
+  visibility: visible;
+}
+
+.terminali-scheda.impilati {
+  flex-direction: column;
+}
+
+.terminali-riquadro {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 6px 0 4px 8px;
+  border-top: 2px solid transparent;
+  background: #151517;
+}
+
+.terminali-riquadro.segnato {
+  border-top-color: var(--accento);
+}
+
+.terminali-schermo {
+  width: 100%;
+  height: 100%;
+}
+
+.terminali-schermo .xterm {
+  height: 100%;
+}
+
+/* Sotto l'ultima riga resta qualche punto: prende il colore del terminale, non il nero di xterm. */
+.terminali-schermo .xterm .xterm-viewport {
+  background-color: #151517;
+}
+
+.terminali-vuoti {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--s-3);
+  color: #a3a29e;
+  font-size: var(--t-ui);
+}
+
+.terminali-vuoti p {
+  margin: 0;
+}
+
+.terminali-vuoti button {
+  border-color: #3a3a3f;
+  background: #232326;
+  color: #ecebe8;
+}

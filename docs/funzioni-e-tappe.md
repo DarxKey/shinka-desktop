@@ -4,7 +4,9 @@ L'obiettivo è la parità con il sito di Shinka, a tappe. L'elenco viene da `web
 
 ## Prima di ogni tappa
 
-Niente codice dell'app finché il centro non ha la storia incrementale e il token di dispositivo ([dipendenze dal server](dipendenze-dal-server.md)). Nel frattempo: decisioni, richieste, repository.
+Il centro ha la storia incrementale e il token di dispositivo ([dipendenze dal server](dipendenze-dal-server.md)), e la prima tappa è costruita: resta da provarla con un centro vero.
+
+Le pagine del sito sono nell'app così come sono ([ADR 0007](adr/0007-si-riusa-la-conversazione-e-la-cornice-e-nuova.md)): per questo anche funzioni delle tappe successive si vedono già, quando usano solo richieste al centro. La tappa dice quando una funzione è provata e curata per il desktop, non quando compare.
 
 ## Funzioni
 

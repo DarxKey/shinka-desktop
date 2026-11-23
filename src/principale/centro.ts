@@ -110,6 +110,7 @@ export class Centro {
         ...(opzioni.corpo === undefined ? {} : { body: opzioni.corpo }),
         ...(opzioni.segnale === undefined ? {} : { signal: opzioni.segnale }),
         redirect: "error",
+        credentials: "omit",
       });
     } catch (causa) {
       if (opzioni.segnale?.aborted === true) throw causa;

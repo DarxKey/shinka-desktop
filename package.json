@@ -11,7 +11,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "sviluppo": "electron-vite dev",
+    "avvia": "electron-vite preview",
     "costruisci": "electron-vite build",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"src/**/*.test.ts\" \"strumenti/**/*.test.mjs\"",
@@ -22,30 +22,66 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0",
     "electron-vite": "^6.0.0",
-    "typescript": "^7.0.2",
-    "vite": "^8.3.8"
-  },
-  "dependencies": {
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
     "highlight.js": "^11.12.0",
     "katex": "^0.19.1",
     "mermaid": "^12.3.0",
-    "node-pty": "^1.1.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "typescript": "^7.0.2",
     "unified": "^11.0.5",
+    "vite": "^8.3.8",
     "zod": "^4.6.7"
+  },
+  "dependencies": {
+    "node-pty": "^1.1.0"
   },
   "allowScripts": {
     "electron@45.4.1": true,
     "node-pty@1.1.0": true
+  },
+  "build": {
+    "appId": "app.shinka.desktop",
+    "productName": "Shinka Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json",
+      "!node_modules/node-pty/{build,deps,src,third_party,scripts,typings}/**",
+      "!node_modules/node-pty/prebuilds/{darwin-arm64,darwin-x64,win32-arm64}/**",
+      "!**/*.pdb"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**"
+    ],
+    "npmRebuild": false,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "shinka/web/public/icona-512.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "Shinka-Desktop-${version}-installa.${ext}",
+      "shortcutName": "Shinka Desktop",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

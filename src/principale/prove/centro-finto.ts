@@ -36,6 +36,8 @@ export class CentroFinto {
   readonly flussiAperti: string[] = [];
   /** L'argomento che la Home ha aperto. */
   idAperto = "2026-11-23-aperto";
+  /** Ciò che il quadro manda a chi lo apre: nome e dati di ogni messaggio. */
+  quadroAllApertura: [string, unknown][] = [];
   /** Vero per far cadere ogni richiesta, come senza rete. */
   spento = false;
   #versioni = 0;
@@ -113,7 +115,9 @@ export class CentroFinto {
     if (intestazioni.get("authorization") !== `Bearer ${GETTONE_FINTO}`) {
       return Response.json({ errore: "Questo dispositivo non può più entrare: serve di nuovo la password." }, { status: 401 });
     }
-    if (url.pathname === "/api/quadro/eventi") return this.#apri(this.#quadri, "quadro", opzioni.signal ?? undefined, () => {});
+    if (url.pathname === "/api/quadro/eventi") return this.#apri(this.#quadri, "quadro", opzioni.signal ?? undefined, (scrivi) => {
+      for (const [nome, dati] of this.quadroAllApertura) scrivi(riga(dati, nome));
+    });
 
     const trovato = /^\/api\/(home|(?:progetti|argomenti)\/[^/]+)\/(storia|eventi)$/.exec(url.pathname);
     if (trovato?.[1] === undefined) return Response.json({ errore: "Non trovato." }, { status: 404 });

@@ -54,6 +54,7 @@ export class Seguite {
   readonly #cache: Cache;
   readonly #quadro: Pick<Quadro, "argomentoAperto">;
   readonly #attese: readonly number[];
+  readonly #aperte = new Set<AbortController>();
 
   constructor(opzioni: { centro: Pick<Centro, "flusso">; cache: Cache; quadro: Pick<Quadro, "argomentoAperto">; attese?: readonly number[] }) {
     this.#centro = opzioni.centro;
@@ -68,8 +69,19 @@ export class Seguite {
    */
   segui(base: string, manda: Manda): () => void {
     const fine = new AbortController();
-    void new Seguita(this.#centro, this.#cache, this.#quadro, this.#attese, base, manda, fine.signal).vai();
-    return () => fine.abort();
+    this.#aperte.add(fine);
+    // Un errore qui non deve fermare l'app: la pagina resta con ciò che ha.
+    void new Seguita(this.#centro, this.#cache, this.#quadro, this.#attese, base, manda, fine.signal).vai().catch(() => {});
+    return () => {
+      this.#aperte.delete(fine);
+      fine.abort();
+    };
+  }
+
+  /** Smette di seguire tutto: il collegamento con il centro si chiude. */
+  chiudi(): void {
+    for (const fine of this.#aperte) fine.abort();
+    this.#aperte.clear();
   }
 }
 

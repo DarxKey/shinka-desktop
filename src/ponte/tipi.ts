@@ -1,0 +1,99 @@
+/**
+ * Ciò che la pagina può chiedere all'app attraverso il ponte: poche funzioni, senza Node e senza
+ * il gettone del dispositivo (ADR 0002). Questo file lo leggono tutti e tre: il processo
+ * principale, il ponte e la pagina.
+ */
+
+/** Un messaggio di un flusso di eventi: `nome` come in un `EventSource`, `dati` il suo testo. */
+export interface MessaggioDelFlusso {
+  nome: string;
+  dati: string;
+}
+
+/** Com'è il collegamento con il centro. */
+export interface Situazione {
+  /** Vero se il centro risponde adesso. */
+  collegato: boolean;
+  /** Quante conversazioni mancano ancora alla cache. */
+  mancano: number;
+  /** Vero se la sincronizzazione si è fermata per un errore: riparte al prossimo collegamento. */
+  ferma: boolean;
+}
+
+export interface StatoApp {
+  versione: string;
+  /** Vero se questo PC è collegato a un centro: c'è un gettone, anche senza connessione. */
+  dentro: boolean;
+  /** Il centro a cui è collegato, o quello da proporre nella schermata di accesso. */
+  centro: string;
+  /** Il nome di questo dispositivo, o quello da proporre. */
+  nome: string;
+  situazione: Situazione | undefined;
+  /** Perché si è tornati alla schermata di accesso, se c'è qualcosa da dire. */
+  avviso: string | undefined;
+}
+
+export type EsitoAccesso = { riuscito: true } | { riuscito: false; errore: string; riprovaTraSecondi?: number };
+
+export interface ShellDisponibile {
+  id: string;
+  nome: string;
+}
+
+export interface TerminaleAperto {
+  shell: ShellDisponibile;
+  cartella: string;
+  /** Vero se la cartella è quella del progetto, che vive su questo PC. */
+  delProgetto: boolean;
+}
+
+export interface Ponte {
+  stato(): Promise<StatoApp>;
+  /** Ogni volta che lo stato cambia. Restituisce la funzione per smettere di ascoltare. */
+  alCambio(ascolta: (stato: StatoApp) => void): () => void;
+  /** Collega questo PC al centro con la password del proprietario: serve solo qui, e non si conserva. */
+  entra(centro: string, password: string, nome: string): Promise<EsitoAccesso>;
+  /** Esce da questo centro: il dispositivo si toglie e le copie locali si buttano. */
+  esci(): Promise<void>;
+  /**
+   * Segue un flusso: `quadro`, oppure la base di una conversazione (`/api/home`, `/api/progetti/<id>`,
+   * `/api/argomenti/<id>`). I messaggi arrivano a gruppi. Restituisce la funzione per smettere.
+   */
+  segui(che: string, ricevi: (messaggi: MessaggioDelFlusso[]) => void): () => void;
+  terminali: {
+    shell(): Promise<ShellDisponibile[]>;
+    /** Apre una shell su questo PC, nella cartella del progetto se vive qui. */
+    apri(
+      richiesta: { shell?: string; idProgetto?: string; colonne: number; righe: number },
+      alDato: (dati: string) => void,
+      allaFine: (codice: number) => void,
+    ): { id: string; aperto: Promise<TerminaleAperto> };
+    scrivi(id: string, dati: string): void;
+    misura(id: string, colonne: number, righe: number): void;
+    chiudi(id: string): void;
+    /** L'app chiede di mostrare o nascondere i terminali, dal menu o dalla tastiera. */
+    alComando(ascolta: (comando: "mostra-nascondi" | "nuovo") => void): () => void;
+  };
+}
+
+/** I nomi dei canali tra la pagina e il processo principale. */
+export const CANALI = {
+  stato: "shinka:stato",
+  cambio: "shinka:cambio",
+  entra: "shinka:entra",
+  esci: "shinka:esci",
+  segui: "shinka:segui",
+  smetti: "shinka:smetti",
+  flusso: "shinka:flusso",
+  shell: "shinka:terminali-shell",
+  apri: "shinka:terminale-apri",
+  scrivi: "shinka:terminale-scrivi",
+  misura: "shinka:terminale-misura",
+  chiudi: "shinka:terminale-chiudi",
+  dati: "shinka:terminale-dati",
+  fine: "shinka:terminale-fine",
+  comando: "shinka:terminale-comando",
+} as const;
+
+/** Il nome con cui il ponte compare nella pagina. */
+export const NOME_DEL_PONTE = "shinkaDesktop";
