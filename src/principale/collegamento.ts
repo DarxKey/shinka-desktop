@@ -11,6 +11,7 @@ import { Centro, type Chiedi } from "./centro.ts";
 import type { Dispositivo } from "./dispositivo.ts";
 import { Immagini } from "./immagini.ts";
 import { Quadro } from "./quadro.ts";
+import { cercaInCache, type Trovato } from "./ricerca.ts";
 import { Seguite } from "./seguite.ts";
 import { Sincronia, type StatoSincronia } from "./sincronia.ts";
 
@@ -79,6 +80,12 @@ export class Collegamento {
 
   get situazione(): Situazione {
     return { collegato: this.quadro.collegato, ...this.sincronia.stato };
+  }
+
+  /** Cerca nelle conversazioni tenute qui; `completa` è vero se non ne manca nessuna da scaricare. */
+  cerca(cercato: string): { risultati: Trovato[]; completa: boolean } {
+    const { collegato, mancano, ferma } = this.situazione;
+    return { risultati: cercaInCache(this.cache, cercato), completa: collegato && mancano === 0 && !ferma };
   }
 
   #avvisa(): void {

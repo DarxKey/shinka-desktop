@@ -64,6 +64,11 @@ export interface PerLePagine {
   /** Il centro a cui questo PC è collegato, se lo è. */
   centro(): Pick<Centro, "richiesta"> | undefined;
   immagini(): Immagini | undefined;
+  /**
+   * La ricerca nelle conversazioni tenute su questo PC. `completa` dice se la copia è in pari con
+   * il centro: allora si risponde da qui, altrimenti si chiede al centro finché si raggiunge.
+   */
+  cerca?(cercato: string): { risultati: unknown[]; completa: boolean } | undefined;
   /** Il proprietario esce da questo centro: il dispositivo si toglie, la cache si butta. */
   esci(): Promise<void>;
 }
@@ -126,6 +131,11 @@ async function api(opzioni: PerLePagine, richiesta: Request, indirizzo: URL): Pr
   if (centro === undefined) return json(401, { errore: "Questo PC non è collegato al centro." });
   if (!METODI.has(metodo)) return json(405, { errore: "Metodo non ammesso." });
 
+  // La ricerca: dalla copia locale se è in pari, e comunque quando il centro non si raggiunge.
+  const cercato = percorso === "/api/cerca" && metodo === "GET" ? (indirizzo.searchParams.get("q") ?? "") : undefined;
+  const trovatiQui = cercato === undefined ? undefined : opzioni.cerca?.(cercato);
+  if (trovatiQui?.completa === true) return json(200, { risultati: trovatiQui.risultati });
+
   const immagini = metodo === "GET" && siTiene(percorso) && !richiesta.headers.has("range") ? opzioni.immagini() : undefined;
   const tenuta = immagini?.leggi(percorso);
   if (tenuta !== undefined) {
@@ -161,6 +171,7 @@ async function api(opzioni: PerLePagine, richiesta: Request, indirizzo: URL): Pr
     return new Response(senzaCorpo ? null : risposta.body, { status: risposta.status, headers: riportate });
   } catch (errore) {
     if (richiesta.signal.aborted) return new Response(null, { status: 499 });
+    if (errore instanceof NonRaggiungibile && trovatiQui !== undefined) return json(200, { risultati: trovatiQui.risultati });
     if (errore instanceof NonRaggiungibile) return json(503, { errore: "Il centro non si raggiunge: senza connessione si può solo leggere." });
     return json(502, { errore: "La richiesta al centro non è riuscita." });
   }

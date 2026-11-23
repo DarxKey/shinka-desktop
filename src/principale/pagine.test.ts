@@ -135,3 +135,38 @@ test("un'immagine di una conversazione si scarica una volta, poi viene dal disco
   // Ciò che non è un'immagine di conversazione si chiede ogni volta.
   assert.equal((await chiedi("/api/progetti/uno/file/contenuto?percorso=a.png")).status, 503);
 });
+
+test("la ricerca viene dalla copia locale se è in pari, e comunque quando il centro non si raggiunge", async () => {
+  const diQui = { risultati: [{ titolo: "di qui" }], completa: true };
+  const viste: string[] = [];
+  let spento = false;
+  const chiedi: Chiedi = async (indirizzo) => {
+    if (spento) throw new TypeError("fetch failed");
+    viste.push(indirizzo);
+    return Response.json({ risultati: [{ titolo: "del centro" }] });
+  };
+  const centro = new Centro({ indirizzo: "https://shinka.example", gettone: GETTONE, chiedi, programma: "ShinkaDesktop/prova" });
+  const cercati: string[] = [];
+  const rispondi = rispondiAllePagine({
+    cartella: tmpdir(),
+    centro: () => centro,
+    immagini: () => undefined,
+    esci: async () => {},
+    cerca: (cercato) => {
+      cercati.push(cercato);
+      return diQui;
+    },
+  });
+  const cerca = async (): Promise<unknown> => await (await rispondi(new Request("shinka://app/api/cerca?q=due%20parole"))).json();
+
+  assert.deepEqual(await cerca(), { risultati: [{ titolo: "di qui" }] });
+  assert.deepEqual(viste, []);
+  assert.deepEqual(cercati, ["due parole"]);
+
+  // Finché la copia non è in pari risponde il centro, che ha tutto.
+  diQui.completa = false;
+  assert.deepEqual(await cerca(), { risultati: [{ titolo: "del centro" }] });
+  assert.deepEqual(viste, ["https://shinka.example/api/cerca?q=due%20parole"]);
+  spento = true;
+  assert.deepEqual(await cerca(), { risultati: [{ titolo: "di qui" }] });
+});

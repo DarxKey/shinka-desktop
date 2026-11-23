@@ -451,6 +451,7 @@ if (!app.requestSingleInstanceLock()) {
         cartella: CARTELLA_PAGINA,
         centro: () => collegamento?.centro,
         immagini: () => collegamento?.immagini,
+        cerca: (cercato) => collegamento?.cerca(cercato),
         esci,
       }),
     );
