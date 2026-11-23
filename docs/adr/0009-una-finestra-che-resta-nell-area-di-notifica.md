@@ -11,7 +11,7 @@ L'app tiene accesi dei terminali, sincronizza una cache e deve avvisare quando u
 - **Una finestra sola**, con la barra laterale: si passa tra Home, argomenti e progetti dalla barra o con le scorciatoie. Lo stato di ciò che è aperto sta nel processo principale e non nella finestra, così aprire un progetto in una seconda finestra si potrà aggiungere senza rifare nulla.
 - **La X chiude la finestra, non l'app.** L'app resta nell'area di notifica: i terminali restano vivi, la cache continua a sincronizzarsi, le notifiche arrivano. Si esce con «Esci» dal menu dell'icona; la prima volta che si chiude la finestra l'app lo spiega.
 - **Una sola copia in esecuzione.** Avviare l'app una seconda volta porta in primo piano la finestra di quella accesa.
-- **L'avvio con Windows è una scelta**, nelle impostazioni, spenta all'inizio.
+- **L'avvio con Windows è una scelta**, spenta all'inizio: si accende dal menu dell'icona, dal menu Aiuto o dalla palette. Avviata così l'app non mostra la finestra: resta nell'area di notifica, già collegata.
 - **Le notifiche di Windows seguono le scelte del sito.** Il proprietario ha già deciso, nella pagina Notifiche di Shinka, che cosa gli arriva come notifica dell'app: richieste che aspettano lui, lavori finiti, lavori programmati. L'app usa quelle scelte, senza una pagina sua. Un clic sulla notifica apre la conversazione giusta. Non si avvisa di una conversazione che è già a schermo nella finestra attiva.
 - **Scrivere al volo arriva dopo.** Una scorciatoia di sistema che apre un piccolo riquadro per scrivere alla Home da qualsiasi programma è prevista nella seconda tappa.
 

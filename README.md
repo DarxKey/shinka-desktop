@@ -2,7 +2,7 @@
 
 Il client per Windows di [Shinka](https://github.com/DarxKey/Shinka): un'app da installare, per lavorare sulla Home e sui progetti senza passare dal browser. Tiene tutte le conversazioni in una cache locale, così si aprono senza attesa e si leggono anche senza connessione, e apre terminali veri del PC accanto alla chat.
 
-**A che punto è.** La prima tappa è costruita e provata con un centro finto: l'app si collega a un centro con un accesso suo, mostra la Home e i progetti con l'interfaccia di Shinka, tiene le conversazioni in una cache locale che si riempie in background, si legge senza connessione, e apre terminali del PC in schede e riquadri accanto alla chat. Serve un centro di Shinka che abbia la storia incrementale e il token di dispositivo (ADR 0046 e 0047 di Shinka).
+**A che punto è.** La prima tappa è costruita, e della seconda ci sono la ricerca locale, le scorciatoie da tastiera e l'avvio con Windows: l'app si collega a un centro con un accesso suo, mostra la Home e i progetti con l'interfaccia di Shinka, tiene le conversazioni in una cache locale che si riempie in background, si legge e si cerca senza connessione, e apre terminali del PC in schede e riquadri accanto alla chat. F1 mostra le scorciatoie. Serve un centro di Shinka che abbia la storia incrementale e il token di dispositivo (ADR 0046 e 0047 di Shinka).
 
 ## Dove guardare
 

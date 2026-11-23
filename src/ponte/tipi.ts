@@ -4,6 +4,8 @@
  * principale, il ponte e la pagina.
  */
 
+import type { Comando } from "./scorciatoie.ts";
+
 /** Un messaggio di un flusso di eventi: `nome` come in un `EventSource`, `dati` il suo testo. */
 export interface MessaggioDelFlusso {
   nome: string;
@@ -31,6 +33,8 @@ export interface StatoApp {
   situazione: Situazione | undefined;
   /** Perché si è tornati alla schermata di accesso, se c'è qualcosa da dire. */
   avviso: string | undefined;
+  /** Vero se l'app parte da sola all'accesso a Windows; manca dove non si può scegliere, cioè nell'app non installata. */
+  avvioConWindows: boolean | undefined;
 }
 
 export type EsitoAccesso = { riuscito: true } | { riuscito: false; errore: string; riprovaTraSecondi?: number };
@@ -60,6 +64,12 @@ export interface Ponte {
    * `/api/argomenti/<id>`). I messaggi arrivano a gruppi. Restituisce la funzione per smettere.
    */
   segui(che: string, ricevi: (messaggi: MessaggioDelFlusso[]) => void): () => void;
+  /** Un comando scelto dal menu dell'app: la pagina lo esegue come se fosse arrivato dalla tastiera. */
+  alComando(ascolta: (comando: Comando) => void): () => void;
+  /** Chiude la finestra: l'app resta nell'area di notifica. */
+  chiudiLaFinestra(): void;
+  /** Sceglie se l'app parte da sola all'accesso a Windows, nell'area di notifica. */
+  avviaConWindows(si: boolean): Promise<void>;
   terminali: {
     shell(): Promise<ShellDisponibile[]>;
     /** Apre una shell su questo PC, nella cartella del progetto se vive qui. */
@@ -71,8 +81,6 @@ export interface Ponte {
     scrivi(id: string, dati: string): void;
     misura(id: string, colonne: number, righe: number): void;
     chiudi(id: string): void;
-    /** L'app chiede di mostrare o nascondere i terminali, dal menu o dalla tastiera. */
-    alComando(ascolta: (comando: "mostra-nascondi" | "nuovo") => void): () => void;
   };
 }
 
@@ -92,7 +100,9 @@ export const CANALI = {
   chiudi: "shinka:terminale-chiudi",
   dati: "shinka:terminale-dati",
   fine: "shinka:terminale-fine",
-  comando: "shinka:terminale-comando",
+  comando: "shinka:comando",
+  chiudiFinestra: "shinka:chiudi-finestra",
+  avvioConWindows: "shinka:avvio-con-windows",
 } as const;
 
 /** Il nome con cui il ponte compare nella pagina. */

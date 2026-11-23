@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { avviaAspetto } from "../../shinka/web/src/aspetto.ts";
 import "../../shinka/web/src/stile.css";
 import { AppDesktop } from "./AppDesktop.tsx";
+import { ascoltaTastieraEMenu } from "./comandi.ts";
 import "./desktop.css";
 import { sostituisciLeSorgenti } from "./sorgente.ts";
 
@@ -10,6 +11,8 @@ import { sostituisciLeSorgenti } from "./sorgente.ts";
 sostituisciLeSorgenti();
 // Il tema scelto dal proprietario vale prima del primo disegno.
 avviaAspetto();
+// I comandi dell'app: dalla tastiera e dal menu.
+ascoltaTastieraEMenu();
 
 // L'app si riapre dov'era: la posizione sta dopo il cancelletto, e a ogni cambio si ricorda.
 const CHIAVE_POSIZIONE = "shinka-desktop.posizione";

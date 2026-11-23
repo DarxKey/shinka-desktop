@@ -9,6 +9,7 @@ import {
   conDivisione,
   conNuovaScheda,
   conRiquadroAttivo,
+  conSchedaAccanto,
   conSchedaInVista,
   daSalvare,
   daSalvata,
@@ -19,6 +20,7 @@ import {
   type Riquadro,
   type Verso,
 } from "./disposizione.ts";
+import { alComando, conITasti, nelTerminale, tornaAllaChat } from "./comandi.ts";
 import { ponte } from "./ponte.ts";
 
 const CHIAVE_PANNELLO = "shinka-desktop.terminali";
@@ -77,6 +79,8 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
   const [aperti, setAperti] = useState<Record<string, TerminaleAperto>>({});
   const [menuDelleShell, setMenuDelleShell] = useState(false);
   const [trascina, setTrascina] = useState(false);
+  // Cresce ogni volta che si chiede di tornare a scrivere nel terminale in vista.
+  const [richiamo, setRichiamo] = useState(0);
   const luogoAdesso = useRef(luogo);
   luogoAdesso.current = luogo;
   const apertoAdesso = useRef(pannello.aperto);
@@ -115,6 +119,8 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
       setPannello((prima) => ({ ...prima, aperto }));
       // Aprire i terminali dove non ce n'è nessuno ne apre uno.
       if (aperto) cambia(luogoAdesso.current, (adesso) => (adesso.schede.length === 0 ? conNuovaScheda(adesso) : adesso));
+      // Nascosti i terminali, chi ci stava scrivendo torna alla conversazione.
+      else if (nelTerminale(document.activeElement)) tornaAllaChat();
     },
     [cambia],
   );
@@ -130,11 +136,30 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
 
   useEffect(
     () =>
-      ponte.terminali.alComando((comando) => {
-        if (comando === "nuovo") nuovaScheda();
-        else mostra(!apertoAdesso.current);
+      alComando((comando) => {
+        const dove = luogoAdesso.current;
+        const aperto = apertoAdesso.current;
+        if (comando === "nuovo-terminale") nuovaScheda();
+        else if (comando === "terminali") mostra(!aperto);
+        else if (comando === "fuoco") {
+          if (aperto && nelTerminale(document.activeElement)) tornaAllaChat();
+          else {
+            mostra(true);
+            setRichiamo((prima) => prima + 1);
+          }
+        } else if (!aperto) return;
+        else if (comando === "dividi-a-destra") cambia(dove, (adesso) => conDivisione(adesso, "affiancati"));
+        else if (comando === "dividi-sotto") cambia(dove, (adesso) => conDivisione(adesso, "impilati"));
+        else if (comando === "scheda-dopo") cambia(dove, (adesso) => conSchedaAccanto(adesso, 1));
+        else if (comando === "scheda-prima") cambia(dove, (adesso) => conSchedaAccanto(adesso, -1));
+        else if (comando === "chiudi-terminale") {
+          cambia(dove, (adesso) => {
+            const inVista = adesso.schede.find((voce) => voce.id === adesso.attiva);
+            return inVista === undefined ? adesso : senzaRiquadro(adesso, inVista.attivo);
+          });
+        }
       }),
-    [mostra, nuovaScheda],
+    [cambia, mostra, nuovaScheda],
   );
 
   // La finestra che si restringe non lascia i terminali più larghi di lei.
@@ -157,7 +182,14 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
 
   return (
     <>
-      <aside className={trascina ? "terminali si-trascina" : "terminali"} hidden={!pannello.aperto} style={{ width: pannello.larghezza }} aria-label="Terminali di questo PC">
+      {/* I tasti scritti in un terminale sono della shell: la pagina di Shinka non li deve sentire. */}
+      <aside
+        className={trascina ? "terminali si-trascina" : "terminali"}
+        hidden={!pannello.aperto}
+        style={{ width: pannello.larghezza }}
+        aria-label="Terminali di questo PC"
+        onKeyDown={(evento) => evento.stopPropagation()}
+      >
         <div
           className="terminali-maniglia"
           role="separator"
@@ -197,7 +229,7 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
             })}
           </div>
           <div className="terminali-comandi">
-            <button type="button" aria-label="Nuovo terminale" title="Nuovo terminale (Ctrl+Maiusc+T)" disabled={(disposizione?.schede.length ?? 0) >= SCHEDE_MASSIME} onClick={() => nuovaScheda()}>
+            <button type="button" aria-label="Nuovo terminale" title={conITasti("Nuovo terminale", "nuovo-terminale")} disabled={(disposizione?.schede.length ?? 0) >= SCHEDE_MASSIME} onClick={() => nuovaScheda()}>
               <Piu />
             </button>
             {shell.length > 1 && (
@@ -205,13 +237,13 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
                 <Freccia />
               </button>
             )}
-            <button type="button" aria-label="Dividi a destra" title="Dividi a destra" disabled={scheda === undefined || pieno} onClick={() => dividi("affiancati")}>
+            <button type="button" aria-label="Dividi a destra" title={conITasti("Dividi a destra", "dividi-a-destra")} disabled={scheda === undefined || pieno} onClick={() => dividi("affiancati")}>
               <DividiADestra />
             </button>
-            <button type="button" aria-label="Dividi sotto" title="Dividi sotto" disabled={scheda === undefined || pieno} onClick={() => dividi("impilati")}>
+            <button type="button" aria-label="Dividi sotto" title={conITasti("Dividi sotto", "dividi-sotto")} disabled={scheda === undefined || pieno} onClick={() => dividi("impilati")}>
               <DividiSotto />
             </button>
-            <button type="button" aria-label="Nascondi i terminali" title="Nascondi i terminali (Ctrl+J)" onClick={() => mostra(false)}>
+            <button type="button" aria-label="Nascondi i terminali" title={conITasti("Nascondi i terminali", "terminali")} onClick={() => mostra(false)}>
               <Croce />
             </button>
           </div>
@@ -239,6 +271,7 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
                       riquadro={riquadro}
                       idProgetto={progettoDi(nome)}
                       conFuoco={inVista && pannello.aperto && una.attivo === riquadro.id}
+                      richiamo={richiamo}
                       segnato={inVista && una.riquadri.length > 1 && una.attivo === riquadro.id}
                       alFuoco={() => cambia(nome, (adesso) => conRiquadroAttivo(adesso, riquadro.id))}
                       alAperto={(aperto) => setAperti((prima) => ({ ...prima, [riquadro.id]: aperto }))}
@@ -271,7 +304,7 @@ export function Terminali({ luogo }: { luogo: string }): ReactNode {
           className={pannello.aperto ? "acceso" : undefined}
           aria-pressed={pannello.aperto}
           aria-label="Terminali di questo PC"
-          title="Terminali di questo PC (Ctrl+J)"
+          title={conITasti("Terminali di questo PC", "terminali")}
           onClick={() => mostra(!pannello.aperto)}
         >
           <IconaTerminale />
@@ -286,6 +319,8 @@ function RiquadroTerminale(proprieta: {
   idProgetto: string | undefined;
   /** Vero se è il riquadro in cui si scrive, nella scheda in vista. */
   conFuoco: boolean;
+  /** Quando cresce, chi ha il fuoco se lo riprende. */
+  richiamo: number;
   /** Vero se va distinto dagli altri riquadri della scheda. */
   segnato: boolean;
   alFuoco: () => void;
@@ -391,7 +426,7 @@ function RiquadroTerminale(proprieta: {
 
   useEffect(() => {
     if (proprieta.conFuoco) terminale.current?.focus();
-  }, [proprieta.conFuoco]);
+  }, [proprieta.conFuoco, proprieta.richiamo]);
 
   return (
     <div className={proprieta.segnato ? "terminali-riquadro segnato" : "terminali-riquadro"}>

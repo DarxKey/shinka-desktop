@@ -16,6 +16,6 @@ L'app parla con un centro che cambia spesso: una versione rimasta indietro può 
 
 ## Conseguenze
 
-- Nel centro non esistono ancora né il feed, né il posto dove consegnare una versione, né la dichiarazione del protocollo: è la terza richiesta al progetto Shinka, da scrivere quando sarà il suo turno (`docs/dipendenze-dal-server.md`). Fino ad allora l'app si aggiorna installando a mano l'installer nuovo.
+- Nel centro non esistono ancora né il feed, né il posto dove consegnare una versione, né la dichiarazione del protocollo: è la terza richiesta al progetto Shinka (`docs/richieste/03-aggiornamento-dell-app.md`). Fino ad allora l'app si aggiorna installando a mano l'installer nuovo.
 - Se il centro non è raggiungibile l'app non si aggiorna: va bene, perché senza centro non c'è nemmeno un protocollo da rispettare.
-- Chi può consegnare una versione al centro può far girare codice sui PC del proprietario: la consegna va protetta quanto l'installazione di una versione di Shinka.
+- Chi può consegnare una versione al centro può far girare codice sui PC del proprietario: la consegna va protetta quanto l'installazione di una versione di Shinka, e un token di dispositivo non deve bastare, perché un PC perso non possa aggiornare gli altri.

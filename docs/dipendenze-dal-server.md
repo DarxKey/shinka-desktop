@@ -22,10 +22,10 @@ Confronto fatto con Shinka alla versione `31a7dfb` del 22 novembre 2026.
 |---|---|---|---|
 | 1 | [Storia di una conversazione da un punto in poi](richieste/01-sincronizzazione-incrementale.md): rotta di sola lettura senza effetti, versione dell'archivio, `ultimo` e `versione` negli elenchi, ripresa del flusso, elenchi completi | Cache e apertura istantanea (tappa 1) | In funzione nel centro (ADR 0046 di Shinka) |
 | 2 | [Token di dispositivo](richieste/02-token-di-dispositivo.md): rilascio con la password, `Authorization: Bearer`, elenco e revoca nella pagina Sicurezza | Accesso senza password a ogni avvio (tappa 1) | In funzione nel centro (ADR 0047 di Shinka) |
-| 3 | Aggiornamento dell'app dal centro: feed `latest.yml` e installer serviti al dispositivo, consegna protetta di una versione nuova, versione del protocollo dichiarata dal centro | Aggiornamento automatico (tappa 2) | Da scrivere quando è il suo turno |
+| 3 | [Aggiornamento dell'app dal centro](richieste/03-aggiornamento-dell-app.md): feed `latest.yml` e installer serviti al dispositivo, consegna protetta di una versione nuova, versione del protocollo dichiarata dal centro | Aggiornamento automatico (tappa 2) | Scritta, da passare alla Home |
 | 4 | Canale degli avvisi: gli stessi avvisi delle notifiche dell'app (richieste, lavori, programmati), secondo le scelte del proprietario, su un flusso che l'app può ascoltare | Notifiche di Windows (tappa 2) | Da scrivere quando è il suo turno |
 
-Le richieste 1 e 2 sono in funzione, e la prima tappa dell'app le usa. Le richieste 3 e 4 si passano alla Home quando comincia la seconda tappa.
+Le richieste 1 e 2 sono in funzione, e la prima tappa dell'app le usa. La 3 è scritta e aspetta di essere passata alla Home; la 4 si scrive dopo che la 3 è stata fatta.
 
 ## Che cosa si sa e non è una richiesta
 

@@ -9,6 +9,7 @@ import { createRequire } from "node:module";
 import { hostname } from "node:os";
 import { join } from "node:path";
 import type { StatoProgetti } from "../../shinka/src/protocollo/progetti.ts";
+import { SCORCIATOIE, type Comando, type Gruppo } from "../ponte/scorciatoie.ts";
 import { CANALI, type EsitoAccesso, type MessaggioDelFlusso, type StatoApp, type TerminaleAperto } from "../ponte/tipi.ts";
 import { ErroreCentro, NonRaggiungibile, aggiungiDispositivo, indirizzoDelCentro, type Chiedi } from "./centro.ts";
 import { Collegamento, buttaLaCache } from "./collegamento.ts";
@@ -26,6 +27,8 @@ const CARTELLA_PAGINA = join(qui, "..", "pagina");
 const FILE_PONTE = join(qui, "..", "ponte", "ponte.cjs");
 const PROGRAMMA = `ShinkaDesktop/${__VERSIONE__}`;
 const NOME = "Shinka Desktop";
+/** Con questo argomento l'app parte senza mostrare la finestra: è così che la avvia Windows all'accesso. */
+const IN_SILENZIO = "--in-silenzio";
 
 // Per le prove: un profilo a parte, per non toccare quello vero.
 if (process.env.SHINKA_DESKTOP_DATI !== undefined && process.env.SHINKA_DESKTOP_DATI !== "") app.setPath("userData", process.env.SHINKA_DESKTOP_DATI);
@@ -61,7 +64,21 @@ function statoApp(): StatoApp {
     nome: collegamento?.dispositivo.nome ?? ultimo?.nome ?? hostname(),
     situazione: collegamento?.situazione,
     avviso,
+    avvioConWindows: avvioConWindows(),
   };
+}
+
+/** Se l'app parte da sola all'accesso a Windows. Vale per l'app installata: quella in prova non si registra. */
+function avvioConWindows(): boolean | undefined {
+  return app.isPackaged ? app.getLoginItemSettings({ args: [IN_SILENZIO] }).openAtLogin : undefined;
+}
+
+function impostaLAvvioConWindows(si: boolean): void {
+  if (!app.isPackaged) return;
+  app.setLoginItemSettings({ openAtLogin: si, args: [IN_SILENZIO] });
+  preparaIlMenu();
+  icona?.setContextMenu(menuDellIcona());
+  avvisaLaPagina();
 }
 
 function avvisaLaPagina(): void {
@@ -169,6 +186,13 @@ function ascoltaLaPagina(): void {
   });
   ipcMain.handle(CANALI.esci, async (evento) => {
     if (dallaPagina(evento)) await esci();
+  });
+
+  ipcMain.on(CANALI.chiudiFinestra, (evento) => {
+    if (dallaPagina(evento)) finestra?.close();
+  });
+  ipcMain.handle(CANALI.avvioConWindows, (evento, si: unknown) => {
+    if (dallaPagina(evento) && typeof si === "boolean") impostaLAvvioConWindows(si);
   });
 
   ipcMain.on(CANALI.segui, (evento, id: unknown, che: unknown) => {
@@ -285,7 +309,8 @@ function mostraLaFinestra(): void {
   finestra.focus();
 }
 
-function apriLaFinestra(): void {
+/** `nascosta`: la finestra si prepara ma non si mostra, e l'app resta nell'area di notifica. */
+function apriLaFinestra(nascosta = false): void {
   const posto = leggiIlPosto();
   const nuova = new BrowserWindow({
     ...posto,
@@ -307,7 +332,7 @@ function apriLaFinestra(): void {
   });
   finestra = nuova;
   if (posto.massimizzata === true) nuova.maximize();
-  nuova.once("ready-to-show", () => nuova.show());
+  if (!nascosta) nuova.once("ready-to-show", () => nuova.show());
 
   // Chiudere la finestra non chiude l'app: resta nell'area di notifica (ADR 0009).
   nuova.on("close", (evento) => {
@@ -318,6 +343,11 @@ function apriLaFinestra(): void {
   });
   nuova.on("closed", () => {
     if (finestra === nuova) finestra = undefined;
+  });
+  // I tasti laterali del mouse vanno avanti e indietro, come in un browser.
+  nuova.on("app-command", (_evento, comando) => {
+    if (comando === "browser-backward") manda(CANALI.comando, "indietro" satisfies Comando);
+    else if (comando === "browser-forward") manda(CANALI.comando, "avanti" satisfies Comando);
   });
 
   const pagina = nuova.webContents;
@@ -363,15 +393,29 @@ function chiudiTutto(): void {
   app.quit();
 }
 
+/**
+ * Una voce del menu per un comando. I tasti sono solo scritti accanto: li ascolta la pagina, che sa
+ * se si sta scrivendo in un terminale e allora lascia alla shell i suoi.
+ */
+function voceDi(comando: Comando): MenuItemConstructorOptions {
+  const voce = SCORCIATOIE.find((una) => una.comando === comando);
+  return { label: voce?.etichetta ?? comando, ...(voce === undefined ? {} : { accelerator: voce.tasti }), registerAccelerator: false, click: () => manda(CANALI.comando, comando) };
+}
+
+function vociDi(gruppo: Gruppo, tranne: readonly Comando[] = []): MenuItemConstructorOptions[] {
+  return SCORCIATOIE.filter((voce) => voce.gruppo === gruppo && !tranne.includes(voce.comando)).map((voce) => voceDi(voce.comando));
+}
+
 function preparaIlMenu(): void {
   const conStrumenti = !app.isPackaged || process.env.SHINKA_DESKTOP_STRUMENTI === "1";
+  const allAccesso = avvioConWindows();
   const modello: MenuItemConstructorOptions[] = [
     {
       label: "File",
       submenu: [
-        { label: "Nuovo terminale", accelerator: "CmdOrCtrl+Shift+T", click: () => manda(CANALI.comando, "nuovo") },
+        voceDi("nuovo-terminale"),
         { type: "separator" },
-        { label: "Chiudi la finestra", accelerator: "CmdOrCtrl+W", click: () => finestra?.close() },
+        voceDi("chiudi-finestra"),
         { label: `Esci da ${NOME}`, accelerator: "CmdOrCtrl+Q", click: chiudiTutto },
       ],
     },
@@ -387,12 +431,13 @@ function preparaIlMenu(): void {
         { label: "Seleziona tutto", role: "selectAll" },
       ],
     },
+    { label: "Vai", submenu: vociDi("Andare") },
+    { label: "Terminali", submenu: vociDi("Terminali") },
     {
       label: "Vista",
       submenu: [
-        { label: "Terminali", accelerator: "CmdOrCtrl+J", click: () => manda(CANALI.comando, "mostra-nascondi") },
-        { type: "separator" },
-        { label: "Ricarica", role: "reload" },
+        // Non Ctrl+R: in un terminale è la ricerca nei comandi già dati.
+        { label: "Ricarica", role: "reload", accelerator: "F5" },
         { label: "Ingrandisci", role: "zoomIn", accelerator: "CmdOrCtrl+=" },
         { label: "Rimpicciolisci", role: "zoomOut" },
         { label: "Dimensione normale", role: "resetZoom" },
@@ -400,20 +445,37 @@ function preparaIlMenu(): void {
         ...(conStrumenti ? ([{ type: "separator" }, { label: "Strumenti di sviluppo", role: "toggleDevTools", accelerator: "F12" }] satisfies MenuItemConstructorOptions[]) : []),
       ],
     },
+    {
+      label: "Aiuto",
+      submenu: [
+        voceDi("scorciatoie"),
+        ...(allAccesso === undefined ? [] : [voceDellAvvio(allAccesso)]),
+        { type: "separator" },
+        { label: `${NOME} ${__VERSIONE__}`, enabled: false },
+      ],
+    },
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(modello));
+}
+
+function voceDellAvvio(acceso: boolean): MenuItemConstructorOptions {
+  return { label: "Avvia con Windows", type: "checkbox", checked: acceso, click: (voce) => impostaLAvvioConWindows(voce.checked) };
+}
+
+function menuDellIcona(): Menu {
+  const allAccesso = avvioConWindows();
+  return Menu.buildFromTemplate([
+    { label: "Apri Shinka", click: mostraLaFinestra },
+    ...(allAccesso === undefined ? [] : [voceDellAvvio(allAccesso)]),
+    { type: "separator" },
+    { label: "Esci", click: chiudiTutto },
+  ]);
 }
 
 function preparaLIcona(): void {
   icona = new Tray(immagine("favicon-32.png"));
   icona.setToolTip(NOME);
-  icona.setContextMenu(
-    Menu.buildFromTemplate([
-      { label: "Apri Shinka", click: mostraLaFinestra },
-      { type: "separator" },
-      { label: "Esci", click: chiudiTutto },
-    ]),
-  );
+  icona.setContextMenu(menuDellIcona());
   icona.on("click", mostraLaFinestra);
 }
 
@@ -466,6 +528,7 @@ if (!app.requestSingleInstanceLock()) {
     preparaLIcona();
     // Il gettone si legge prima di aprire la finestra: la pagina sa subito se questo PC è collegato.
     await apriIlCollegamento().catch(() => {});
-    apriLaFinestra();
+    // Avviata da Windows all'accesso resta nell'area di notifica, con la finestra già pronta.
+    apriLaFinestra(process.argv.includes(IN_SILENZIO));
   });
 }

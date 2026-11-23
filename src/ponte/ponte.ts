@@ -4,6 +4,7 @@
  */
 
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
+import type { Comando } from "./scorciatoie.ts";
 import { CANALI, NOME_DEL_PONTE, type EsitoAccesso, type MessaggioDelFlusso, type Ponte, type ShellDisponibile, type StatoApp, type TerminaleAperto } from "./tipi.ts";
 
 const flussi = new Map<string, (messaggi: MessaggioDelFlusso[]) => void>();
@@ -47,6 +48,9 @@ const ponte: Ponte = {
       if (flussi.delete(id)) ipcRenderer.send(CANALI.smetti, id);
     };
   },
+  alComando: (ricevi) => ascolta<Comando>(CANALI.comando, ricevi),
+  chiudiLaFinestra: () => ipcRenderer.send(CANALI.chiudiFinestra),
+  avviaConWindows: (si) => ipcRenderer.invoke(CANALI.avvioConWindows, si) as Promise<void>,
   terminali: {
     shell: () => ipcRenderer.invoke(CANALI.shell) as Promise<ShellDisponibile[]>,
     apri: (richiesta, alDato, allaFine) => {
@@ -62,7 +66,6 @@ const ponte: Ponte = {
     scrivi: (id, dati) => ipcRenderer.send(CANALI.scrivi, id, dati),
     misura: (id, colonne, righe) => ipcRenderer.send(CANALI.misura, id, colonne, righe),
     chiudi: (id) => ipcRenderer.send(CANALI.chiudi, id),
-    alComando: (ricevi) => ascolta<"mostra-nascondi" | "nuovo">(CANALI.comando, ricevi),
   },
 };
 

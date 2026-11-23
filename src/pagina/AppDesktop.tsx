@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Guscio } from "../../shinka/web/src/Guscio.tsx";
-import { useFrammento, vistaDa } from "../../shinka/web/src/vista.ts";
+import { useFrammento, vaiA, vistaDa } from "../../shinka/web/src/vista.ts";
 import type { Situazione, StatoApp } from "../ponte/tipi.ts";
+import { alComando } from "./comandi.ts";
 import { luogoDi } from "./disposizione.ts";
 import { ponte } from "./ponte.ts";
 import { PrimoAccesso } from "./PrimoAccesso.tsx";
+import { Scorciatoie } from "./Scorciatoie.tsx";
 import { Terminali } from "./Terminali.tsx";
 
 /** Da quante conversazioni mancanti in su si dice che la cache si sta riempiendo: sotto, è un attimo. */
@@ -28,6 +30,15 @@ export function AppDesktop(): ReactNode {
       smetti();
     };
   }, []);
+
+  // Chiudere la finestra vale anche prima dell'accesso.
+  useEffect(
+    () =>
+      alComando((comando) => {
+        if (comando === "chiudi-finestra") ponte.chiudiLaFinestra();
+      }),
+    [],
+  );
 
   if (stato === undefined) return null;
   if (!stato.dentro) return <PrimoAccesso stato={stato} />;
@@ -53,6 +64,22 @@ function Dentro({ situazione }: { situazione: Situazione | undefined }): ReactNo
   }, []);
   const avviso = pronto || situazione?.collegato === true ? avvisoDi(situazione) : undefined;
 
+  const [scorciatoie, setScorciatoie] = useState(false);
+  useEffect(
+    () =>
+      alComando((comando) => {
+        if (comando === "cerca") vaiA({ tipo: "cerca" });
+        else if (comando === "home") vaiA({ tipo: "home" });
+        else if (comando === "impostazioni") vaiA({ tipo: "impostazioni" });
+        else if (comando === "indietro") window.history.back();
+        else if (comando === "avanti") window.history.forward();
+        else if (comando === "scorciatoie") setScorciatoie((prima) => !prima);
+        // La palette è della pagina di Shinka, che la apre con questo tasto: glielo si fa sentire.
+        else if (comando === "vai-a") window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }));
+      }),
+    [],
+  );
+
   return (
     <div className={avviso === undefined ? "desktop" : "desktop con-avviso"}>
       {avviso !== undefined && (
@@ -67,6 +94,7 @@ function Dentro({ situazione }: { situazione: Situazione | undefined }): ReactNo
         </div>
         <Terminali luogo={luogo} />
       </div>
+      {scorciatoie && <Scorciatoie allaChiusura={() => setScorciatoie(false)} />}
     </div>
   );
 }

@@ -59,6 +59,8 @@ Finita quando: su un PC appena installato si entra una volta, ogni conversazione
 
 Aggiornamento automatico dal centro; notifiche di Windows; ricerca locale; scorciatoie da tastiera e tavolozza dei comandi; scrittura al volo con una scorciatoia di sistema; avvio con Windows.
 
+Fatti: la ricerca locale, le scorciatoie da tastiera ([ADR 0010](adr/0010-i-tasti-li-ascolta-la-pagina.md)), i comandi dell'app nella palette, l'avvio con Windows. L'aggiornamento e le notifiche aspettano il centro (richieste 3 e 4); la scrittura al volo resta da fare.
+
 ### Tappa 3: il progetto intorno alla chat
 
 Pannello dei file; elaborati; applicazione e anteprima; terminale del nodo accanto a quelli locali.

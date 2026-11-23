@@ -96,6 +96,14 @@ export function conSchedaInVista(disposizione: Disposizione, idScheda: string): 
   return disposizione.schede.some((scheda) => scheda.id === idScheda) ? { ...disposizione, attiva: idScheda } : disposizione;
 }
 
+/** Porta in vista la scheda dopo (`1`) o prima (`-1`) di quella in vista, girando in tondo. */
+export function conSchedaAccanto(disposizione: Disposizione, passo: 1 | -1): Disposizione {
+  const quante = disposizione.schede.length;
+  const dove = disposizione.schede.findIndex((scheda) => scheda.id === disposizione.attiva);
+  if (quante < 2 || dove < 0) return disposizione;
+  return { ...disposizione, attiva: disposizione.schede[(dove + passo + quante) % quante]?.id };
+}
+
 export function conRiquadroAttivo(disposizione: Disposizione, idRiquadro: string): Disposizione {
   const scheda = disposizione.schede.find((voce) => voce.riquadri.some((r) => r.id === idRiquadro));
   if (scheda === undefined || scheda.attivo === idRiquadro) return disposizione;
