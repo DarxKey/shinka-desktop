@@ -16,6 +16,8 @@ L'app parla con un centro che cambia spesso: una versione rimasta indietro può 
 
 ## Conseguenze
 
-- Nel centro non esistono ancora né il feed, né il posto dove consegnare una versione, né la dichiarazione del protocollo: è la terza richiesta al progetto Shinka (`docs/richieste/03-aggiornamento-dell-app.md`). Fino ad allora l'app si aggiorna installando a mano l'installer nuovo.
+- Il centro serve il feed, riceve le versioni dalle sue Impostazioni (sezione Shinka Desktop, con la password del proprietario, dalla cartella `release`) e dichiara il protocollo in `/api/stato` (ADR 0049 di Shinka). L'app lo usa dalla 0.3.0 (`src/principale/aggiornamenti.ts`): controlla 20 secondi dopo l'avvio, poi ogni quattro ore, e quando il centro torna raggiungibile. La 0.3.0 si installa a mano un'ultima volta; da lì le versioni arrivano da sole.
+- `package.json` ha la configurazione `publish` con il fornitore generico solo perché electron-builder scriva `latest.yml`: l'indirizzo scritto lì non si usa, l'app lo prende dal centro a cui è collegata.
+- Per pubblicare una versione: si alza `version` in `package.json`, `npm run installer`, poi Pubblica nelle Impostazioni del centro. Se la versione cambia il protocollo, va pubblicata prima di installare il centro che lo cambia.
 - Se il centro non è raggiungibile l'app non si aggiorna: va bene, perché senza centro non c'è nemmeno un protocollo da rispettare.
 - Chi può consegnare una versione al centro può far girare codice sui PC del proprietario: la consegna va protetta quanto l'installazione di una versione di Shinka, e un token di dispositivo non deve bastare, perché un PC perso non possa aggiornare gli altri.

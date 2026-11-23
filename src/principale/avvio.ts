@@ -11,6 +11,8 @@ import { join } from "node:path";
 import type { StatoProgetti } from "../../shinka/src/protocollo/progetti.ts";
 import { SCORCIATOIE, type Comando, type Gruppo } from "../ponte/scorciatoie.ts";
 import { CANALI, type EsitoAccesso, type MessaggioDelFlusso, type StatoApp, type TerminaleAperto } from "../ponte/tipi.ts";
+import electronUpdater from "electron-updater";
+import { Aggiornamenti, type Aggiornatore } from "./aggiornamenti.ts";
 import { ErroreCentro, NonRaggiungibile, aggiungiDispositivo, indirizzoDelCentro, type Chiedi } from "./centro.ts";
 import { Collegamento, buttaLaCache } from "./collegamento.ts";
 import { Custodia } from "./dispositivo.ts";
@@ -43,6 +45,9 @@ let custodia: Custodia;
 let terminali: Terminali;
 let avviso: string | undefined;
 let staUscendo = false;
+let aggiornamenti: Aggiornamenti;
+/** Se il centro rispondeva l'ultima volta: quando torna, potrebbe essere stato aggiornato. */
+let eraCollegato = false;
 /** I flussi che la pagina sta seguendo: per ciascuno, come smettere. */
 const flussi = new Map<string, () => void>();
 
@@ -65,7 +70,21 @@ function statoApp(): StatoApp {
     situazione: collegamento?.situazione,
     avviso,
     avvioConWindows: avvioConWindows(),
+    aggiornamento: aggiornamenti.stato.fase === "nessuno" ? undefined : aggiornamenti.stato,
+    soloLettura: aggiornamenti.soloLettura,
   };
+}
+
+/** Lo stato è cambiato: lo sanno la pagina e il menu dell'icona. */
+function alCambioDegliAggiornamenti(): void {
+  icona?.setContextMenu(menuDellIcona());
+  avvisaLaPagina();
+}
+
+/** Che cosa dice il centro di sé, senza gettone: il protocollo che parla. */
+async function statoDelCentro(centro: string): Promise<{ protocollo?: unknown }> {
+  const risposta = await chiedi(`${centro}/api/stato`, { headers: { "User-Agent": PROGRAMMA }, redirect: "error", credentials: "omit", signal: AbortSignal.timeout(15_000) });
+  return risposta.ok ? ((await risposta.json()) as { protocollo?: unknown }) : {};
 }
 
 /** Se l'app parte da sola all'accesso a Windows. Vale per l'app installata: quella in prova non si registra. */
@@ -106,7 +125,10 @@ async function apriIlCollegamento(): Promise<void> {
     // Il rifiuto arriva nel mezzo di una richiesta: il collegamento si chiude appena finita.
     alRifiuto: () => setImmediate(() => rifiutato(dispositivo.centro)),
     // La sincronizzazione cambia stato molte volte al secondo: alla pagina basta saperlo ogni tanto.
-    allaSituazione: () => {
+    allaSituazione: (situazione) => {
+      // Il centro torna dopo un'assenza: forse è stato aggiornato, e parla un protocollo nuovo.
+      if (situazione.collegato && !eraCollegato) void aggiornamenti.controlla();
+      eraCollegato = situazione.collegato;
       if (situazioneInArrivo) return;
       situazioneInArrivo = true;
       setTimeout(() => {
@@ -115,12 +137,16 @@ async function apriIlCollegamento(): Promise<void> {
       }, 250);
     },
   });
+  // Gli aggiornamenti vengono dal centro a cui questo PC è collegato, con il suo gettone.
+  aggiornamenti.collega(dispositivo.centro, dispositivo.gettone, PROGRAMMA);
 }
 
 function chiudiIlCollegamento(): void {
   smettiDiSeguire();
   collegamento?.chiudi();
   collegamento = undefined;
+  eraCollegato = false;
+  aggiornamenti.scollega();
 }
 
 /** Il centro non riconosce più questo dispositivo: è stato tolto dal proprietario, e le copie locali non restano. */
@@ -193,6 +219,9 @@ function ascoltaLaPagina(): void {
   });
   ipcMain.handle(CANALI.avvioConWindows, (evento, si: unknown) => {
     if (dallaPagina(evento) && typeof si === "boolean") impostaLAvvioConWindows(si);
+  });
+  ipcMain.on(CANALI.aggiorna, (evento) => {
+    if (dallaPagina(evento)) aggiornamenti.riavviaPerAggiornare();
   });
 
   ipcMain.on(CANALI.segui, (evento, id: unknown, che: unknown) => {
@@ -464,8 +493,10 @@ function voceDellAvvio(acceso: boolean): MenuItemConstructorOptions {
 
 function menuDellIcona(): Menu {
   const allAccesso = avvioConWindows();
+  const pronta = aggiornamenti.stato.fase === "pronta" ? aggiornamenti.stato.versione : undefined;
   return Menu.buildFromTemplate([
     { label: "Apri Shinka", click: mostraLaFinestra },
+    ...(pronta === undefined ? [] : ([{ label: `Riavvia per aggiornare alla ${pronta}`, click: () => aggiornamenti.riavviaPerAggiornare() }] satisfies MenuItemConstructorOptions[])),
     ...(allAccesso === undefined ? [] : [voceDellAvvio(allAccesso)]),
     { type: "separator" },
     { label: "Esci", click: chiudiTutto },
@@ -506,6 +537,20 @@ if (!app.requestSingleInstanceLock()) {
     });
     const { spawn } = createRequire(import.meta.url)("node-pty") as typeof import("node-pty");
     terminali = new Terminali(spawn);
+    const aggiornatore = electronUpdater.autoUpdater;
+    aggiornatore.logger = null;
+    aggiornamenti = new Aggiornamenti({
+      aggiornatore: aggiornatore as unknown as Aggiornatore,
+      // L'app in prova non si aggiorna: non è installata, e non ha un installer da sostituire.
+      attivo: app.isPackaged,
+      statoDelCentro,
+      alCambio: alCambioDegliAggiornamenti,
+      // L'installer chiude l'app: la finestra si deve poter chiudere davvero, e i terminali si chiudono.
+      primaDiInstallare: () => {
+        staUscendo = true;
+        terminali.chiudiTutti();
+      },
+    });
 
     protocol.handle(
       SCHEMA,
@@ -515,6 +560,8 @@ if (!app.requestSingleInstanceLock()) {
         immagini: () => collegamento?.immagini,
         cerca: (cercato) => collegamento?.cerca(cercato),
         esci,
+        soloLettura: () =>
+          aggiornamenti.soloLettura ? "Il centro è stato aggiornato e questa versione dell'app non lo capisce più: finché non si aggiorna, puoi solo leggere." : undefined,
       }),
     );
     // La pagina può copiare negli appunti, mandare notifiche e andare a schermo intero; il resto no.

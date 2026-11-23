@@ -71,6 +71,11 @@ export interface PerLePagine {
   cerca?(cercato: string): { risultati: unknown[]; completa: boolean } | undefined;
   /** Il proprietario esce da questo centro: il dispositivo si toglie, la cache si butta. */
   esci(): Promise<void>;
+  /**
+   * Se il centro parla un protocollo più nuovo di questa versione dell'app, il motivo per cui non si
+   * scrive: le richieste che cambiano qualcosa non partono (ADR 0006).
+   */
+  soloLettura?(): string | undefined;
 }
 
 export function rispondiAllePagine(opzioni: PerLePagine): (richiesta: Request) => Promise<Response> {
@@ -130,6 +135,8 @@ async function api(opzioni: PerLePagine, richiesta: Request, indirizzo: URL): Pr
   if (percorso === "/api/accesso" || percorso === "/api/dispositivi") return json(404, { errore: "Da qui l'accesso si fa dalla schermata dell'app." });
   if (centro === undefined) return json(401, { errore: "Questo PC non è collegato al centro." });
   if (!METODI.has(metodo)) return json(405, { errore: "Metodo non ammesso." });
+  const fermo = metodo === "GET" || metodo === "HEAD" ? undefined : opzioni.soloLettura?.();
+  if (fermo !== undefined) return json(409, { errore: fermo });
 
   // La ricerca: dalla copia locale se è in pari, e comunque quando il centro non si raggiunge.
   const cercato = percorso === "/api/cerca" && metodo === "GET" ? (indirizzo.searchParams.get("q") ?? "") : undefined;

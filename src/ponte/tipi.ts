@@ -35,7 +35,13 @@ export interface StatoApp {
   avviso: string | undefined;
   /** Vero se l'app parte da sola all'accesso a Windows; manca dove non si può scegliere, cioè nell'app non installata. */
   avvioConWindows: boolean | undefined;
+  /** Una versione nuova dell'app, presa dal centro: mentre si scarica, e quando è pronta da installare (ADR 0006). */
+  aggiornamento: AggiornamentoInVista | undefined;
+  /** Vero se il centro parla un protocollo più nuovo di quello di questa versione: si legge e basta. */
+  soloLettura: boolean;
 }
+
+export type AggiornamentoInVista = { fase: "scarica"; versione: string; percento?: number } | { fase: "pronta"; versione: string };
 
 export type EsitoAccesso = { riuscito: true } | { riuscito: false; errore: string; riprovaTraSecondi?: number };
 
@@ -70,6 +76,8 @@ export interface Ponte {
   chiudiLaFinestra(): void;
   /** Sceglie se l'app parte da sola all'accesso a Windows, nell'area di notifica. */
   avviaConWindows(si: boolean): Promise<void>;
+  /** Installa la versione nuova già scaricata e riapre l'app: i terminali di questo PC si chiudono. */
+  riavviaPerAggiornare(): void;
   terminali: {
     shell(): Promise<ShellDisponibile[]>;
     /** Apre una shell su questo PC, nella cartella del progetto se vive qui. */
@@ -103,6 +111,7 @@ export const CANALI = {
   comando: "shinka:comando",
   chiudiFinestra: "shinka:chiudi-finestra",
   avvioConWindows: "shinka:avvio-con-windows",
+  aggiorna: "shinka:aggiorna",
 } as const;
 
 /** Il nome con cui il ponte compare nella pagina. */

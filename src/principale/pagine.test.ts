@@ -170,3 +170,25 @@ test("la ricerca viene dalla copia locale se è in pari, e comunque quando il ce
   spento = true;
   assert.deepEqual(await cerca(), { risultati: [{ titolo: "di qui" }] });
 });
+
+test("con il centro su un protocollo più nuovo si legge e basta: ciò che cambia qualcosa non parte", async () => {
+  const arrivate: string[] = [];
+  const chiedi: Chiedi = async (indirizzo, opzioni) => {
+    arrivate.push(`${opzioni.method ?? "GET"} ${indirizzo}`);
+    return Response.json({ va: "bene" });
+  };
+  const cartella = mkdtempSync(join(tmpdir(), "shinka-desktop-sola-lettura-"));
+  const centro = new Centro({ indirizzo: "https://shinka.example", gettone: GETTONE, chiedi, programma: "ShinkaDesktop/prova" });
+  let ferma: string | undefined = "Il centro è stato aggiornato: puoi solo leggere.";
+  const rispondi = rispondiAllePagine({ cartella, centro: () => centro, immagini: () => undefined, esci: async () => {}, soloLettura: () => ferma });
+
+  const scritto = await rispondi(new Request("shinka://app/api/home/messaggi", { method: "POST", body: "{}" }));
+  assert.equal(scritto.status, 409);
+  assert.deepEqual(await scritto.json(), { errore: "Il centro è stato aggiornato: puoi solo leggere." });
+  assert.deepEqual(arrivate, []);
+  assert.equal((await rispondi(new Request("shinka://app/api/progetti/x/storia"))).status, 200);
+  assert.deepEqual(arrivate, ["GET https://shinka.example/api/progetti/x/storia"]);
+
+  ferma = undefined;
+  assert.equal((await rispondi(new Request("shinka://app/api/home/messaggi", { method: "POST", body: "{}" }))).status, 200);
+});

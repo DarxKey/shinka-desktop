@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Guscio } from "../../shinka/web/src/Guscio.tsx";
 import { useFrammento, vaiA, vistaDa } from "../../shinka/web/src/vista.ts";
-import type { Situazione, StatoApp } from "../ponte/tipi.ts";
+import type { AggiornamentoInVista, Situazione, StatoApp } from "../ponte/tipi.ts";
 import { alComando } from "./comandi.ts";
 import { luogoDi } from "./disposizione.ts";
 import { ponte } from "./ponte.ts";
@@ -43,7 +43,7 @@ export function AppDesktop(): ReactNode {
   if (stato === undefined) return null;
   if (!stato.dentro) return <PrimoAccesso stato={stato} />;
   // Cambiando centro l'interfaccia riparte da capo.
-  return <Dentro key={stato.centro} situazione={stato.situazione} />;
+  return <Dentro key={stato.centro} situazione={stato.situazione} aggiornamento={stato.aggiornamento} soloLettura={stato.soloLettura} />;
 }
 
 function avvisoDi(situazione: Situazione | undefined): string | undefined {
@@ -53,7 +53,22 @@ function avvisoDi(situazione: Situazione | undefined): string | undefined {
   return undefined;
 }
 
-function Dentro({ situazione }: { situazione: Situazione | undefined }): ReactNode {
+/**
+ * L'avviso in cima, se ce n'è uno: un centro che questa versione non capisce più viene prima di
+ * tutto, poi una versione nuova pronta da installare, poi il collegamento e la cache (ADR 0006).
+ */
+function avvisoInCima(situazione: Situazione | undefined, aggiornamento: AggiornamentoInVista | undefined, soloLettura: boolean, pronto: boolean): { testo: string; genere: string; aggiorna?: true } | undefined {
+  if (soloLettura) {
+    return aggiornamento?.fase === "pronta"
+      ? { testo: `Il centro è stato aggiornato: riavvia l'app per passare alla ${aggiornamento.versione}. Fino ad allora puoi solo leggere.`, genere: "scollegato", aggiorna: true }
+      : { testo: "Il centro è stato aggiornato e questa versione dell'app non lo capisce più: puoi solo leggere finché non si aggiorna.", genere: "scollegato" };
+  }
+  if (aggiornamento?.fase === "pronta") return { testo: `È pronta la versione ${aggiornamento.versione} di Shinka Desktop: si installa quando esci, oppure adesso.`, genere: "", aggiorna: true };
+  const testo = pronto || situazione?.collegato === true ? avvisoDi(situazione) : undefined;
+  return testo === undefined ? undefined : { testo, genere: situazione?.collegato === false ? "scollegato" : "" };
+}
+
+function Dentro({ situazione, aggiornamento, soloLettura }: { situazione: Situazione | undefined; aggiornamento: AggiornamentoInVista | undefined; soloLettura: boolean }): ReactNode {
   const frammento = useFrammento();
   const luogo = useMemo(() => luogoDi(vistaDa(frammento)), [frammento]);
   // Appena aperta l'app non si sa ancora se il centro risponde: l'avviso aspetta un momento.
@@ -62,7 +77,7 @@ function Dentro({ situazione }: { situazione: Situazione | undefined }): ReactNo
     const sveglia = setTimeout(() => setPronto(true), 2500);
     return () => clearTimeout(sveglia);
   }, []);
-  const avviso = pronto || situazione?.collegato === true ? avvisoDi(situazione) : undefined;
+  const avviso = avvisoInCima(situazione, aggiornamento, soloLettura, pronto);
 
   const [scorciatoie, setScorciatoie] = useState(false);
   useEffect(
@@ -83,8 +98,13 @@ function Dentro({ situazione }: { situazione: Situazione | undefined }): ReactNo
   return (
     <div className={avviso === undefined ? "desktop" : "desktop con-avviso"}>
       {avviso !== undefined && (
-        <p className={situazione?.collegato === false ? "avviso-desktop scollegato" : "avviso-desktop"} role="status">
-          {avviso}
+        <p className={avviso.genere === "" ? "avviso-desktop" : `avviso-desktop ${avviso.genere}`} role="status">
+          <span className="testo-avviso">{avviso.testo}</span>
+          {avviso.aggiorna === true && (
+            <button type="button" className="mini" onClick={() => ponte.riavviaPerAggiornare()}>
+              Riavvia per aggiornare
+            </button>
+          )}
         </p>
       )}
       <div className="desktop-corpo">
