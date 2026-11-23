@@ -65,6 +65,12 @@
       "node_modules/node-pty/**"
     ],
     "npmRebuild": false,
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "http://localhost/api/desktop/aggiornamenti"
+      }
+    ],
     "win": {
       "target": [
         {
