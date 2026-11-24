@@ -83,6 +83,8 @@ export type RiferitoDalNodo =
   | { tipo: "accessi-esito"; idRichiesta: string; esito: EsitoAccessi }
   /** Le risorse di questo ambiente, lette adesso: per la sua pagina. */
   | { tipo: "risorse-esito"; idRichiesta: string; risorse: RisorseDellAmbiente }
+  /** Com'è andata la scelta di far partire il nodo a ogni accesso a Windows. */
+  | { tipo: "avvio-con-windows-esito"; idRichiesta: string; attivo?: boolean; motivo?: string }
   /** Ciò che esce dal terminale di un progetto di questo ambiente. */
   | RiferitoTerminale
   /** Ciò che risponde l'applicazione di un progetto di questo ambiente, per l'anteprima. */
@@ -117,12 +119,18 @@ export type MessaggioNodo =
       siAggiorna?: boolean;
       /** L'ultimo aggiornamento, se non è partito e il nodo è tornato alla versione di prima. */
       aggiornamentoFallito?: { versione: string; motivo: string };
+      /** L'indirizzo con cui questo nodo raggiunge il centro: quello giusto per reinstallarlo. */
+      centro?: string;
+      /** Su Windows: vero se il nodo parte a ogni accesso, falso se no. Manca dove non si sa o non vale. */
+      avvioConWindows?: boolean;
     }
   | { tipo: "battito" }
   | RiferitoDalNodo;
 
 /** Ciò che il centro chiede a un nodo di fare nel suo ambiente. */
 export type ComandoPerNodo =
+  /** Su Windows: fa partire il nodo, con la sua icona, a ogni accesso, oppure smette. */
+  | { tipo: "avvio-con-windows"; idRichiesta: string; attivo: boolean }
   /**
    * Crea la cartella di un progetto nuovo. Fallisce se esiste già. Con `daArgomento` ci copia
    * i file che quell'argomento della Home ha in questo ambiente.
@@ -194,6 +202,8 @@ export type ComandoPerNodo =
   | { tipo: "chiudi-conversazione"; idConversazione: string }
   /** Un'azione della Home in questo ambiente, nella cartella di un suo argomento. */
   | { tipo: "azione"; idRichiesta: string; idArgomento: string; azione: AzioneInAmbiente }
+  /** Un'azione di un progetto in una sua cartella collegata, in questo ambiente (ADR 0050). */
+  | { tipo: "azione-in-cartella"; idRichiesta: string; cartella: string; azione: AzioneInAmbiente }
   /** Il terminale di un progetto di questo ambiente. */
   | ComandoTerminale
   /** L'anteprima dell'applicazione di un progetto di questo ambiente. */
@@ -239,6 +249,10 @@ export interface Ambiente {
   cifrato?: boolean;
   /** A che punto è l'aggiornamento chiesto a questo nodo, se ce n'è uno. */
   aggiornamento?: AggiornamentoDelNodo;
+  /** L'indirizzo con cui il nodo raggiunge il centro, come l'ha detto l'ultima volta. */
+  indirizzoDelCentro?: string;
+  /** Su Windows, per un nodo collegato che lo sa dire: se parte a ogni accesso. */
+  avvioConWindows?: boolean;
 }
 
 /** L'aggiornamento di un nodo alla versione del centro: in corso, oppure non riuscito. */

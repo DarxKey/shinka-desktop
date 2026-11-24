@@ -4,6 +4,8 @@
  * con la loro uscita) e quanti file sono stati cambiati.
  */
 
+import { CartelleCollegate } from "./Collegate.tsx";
+import { ChiImplementa } from "./ChiImplementa.tsx";
 import { useState, type ReactNode } from "react";
 import type { Attivita } from "../../src/protocollo/attivita.ts";
 import type { UscitaAttivita } from "../../src/protocollo/eventi.ts";
@@ -34,6 +36,9 @@ export function SchedaSessione({
   alPannello?: () => void;
 }): ReactNode {
   const inCorso = attivita.filter((voce) => voce.stato === "in-corso").length;
+  // Un progetto può avere cartelle collegate in altri ambienti; la Home no.
+  const codificato = /^\/api\/progetti\/([^/]+)$/.exec(base)?.[1];
+  const idProgetto = codificato === undefined ? undefined : decodeURIComponent(codificato);
   const contesto = stato?.contesto;
   const etichetta = inCorso > 0 ? `Sessione: ${inCorso === 1 ? "un'attività in corso" : `${inCorso} attività in corso`}` : "Sessione";
   return (
@@ -68,6 +73,8 @@ export function SchedaSessione({
               </>
             )}
           </dl>
+          {idProgetto !== undefined && <ChiImplementa idProgetto={idProgetto} modelli={stato?.modelli} />}
+          {idProgetto !== undefined && <CartelleCollegate idProgetto={idProgetto} />}
         </section>
         {contesto !== undefined && (
           <section>

@@ -31,6 +31,8 @@ export const TIPI_ACCESSO = [
   "dispositivo-non-aggiunto",
   "dispositivo-tolto",
   "dispositivo-rifiutato",
+  "desktop-pubblicato",
+  "desktop-non-pubblicato",
 ] as const;
 export type TipoAccesso = (typeof TIPI_ACCESSO)[number];
 
@@ -49,6 +51,7 @@ export const DA_GUARDARE: readonly TipoAccesso[] = [
   "ripristino-rifiutato",
   "dispositivo-non-aggiunto",
   "dispositivo-rifiutato",
+  "desktop-non-pubblicato",
 ];
 
 /** Una riga del registro delle richieste. */
@@ -146,6 +149,8 @@ const IN_PAROLE: Record<TipoAccesso, string> = {
   "dispositivo-non-aggiunto": "Dispositivo non aggiunto: password sbagliata",
   "dispositivo-tolto": "Dispositivo tolto",
   "dispositivo-rifiutato": "Richiesta con un gettone di dispositivo che non vale",
+  "desktop-pubblicato": "Versione di Shinka Desktop pubblicata",
+  "desktop-non-pubblicato": "Versione di Shinka Desktop non pubblicata",
 };
 
 /** Che cosa è successo, in parole per il proprietario. */

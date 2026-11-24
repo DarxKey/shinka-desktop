@@ -23,6 +23,7 @@ function inParole(causa: unknown, ripiego: string): string {
 /** Come si chiama, nella scheda, ciò che la definizione dice. */
 const CHE_COSA_E = {
   "mcp-locale": "Che cosa viene eseguito",
+  "modello-locale": "Che cosa viene eseguito",
   "mcp-remoto": "A che cosa si collega",
   plugin: "Da dove viene",
 } as const;

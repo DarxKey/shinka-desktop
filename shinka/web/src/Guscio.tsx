@@ -1,3 +1,4 @@
+import { ReteDiSicurezza } from "./ReteDiSicurezza.tsx";
 import { PaginaImpostazioni } from "./Impostazioni.tsx";
 import { PaginaCerca } from "./Cerca.tsx";
 import { PaginaArchiviazione, PaginaUso } from "./Uso.tsx";
@@ -462,7 +463,8 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
         {lateraleAperta && <div className="velo" onClick={() => setLateraleAperta(false)} />}
         <main className="principale">
           {paletteAperta && <Palette voci={vociPalette} allaChiusura={() => setPaletteAperta(false)} />}
-          {contenuto}
+          {/* Una pagina che si rompe non porta via tutto: cambiando pagina si riprova. */}
+          <ReteDiSicurezza key={frammento}>{contenuto}</ReteDiSicurezza>
           {pannelloAperto && <PannelloAmbienti stato={quadro.ambienti} allaChiusura={chiudiPannello} />}
         </main>
       </div>

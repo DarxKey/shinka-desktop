@@ -1359,12 +1359,6 @@ li.con-immagine {
 
 /* Ambienti */
 
-.pulsante-ambienti {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .conteggio {
   font-size: 0.8125rem;
 }
@@ -2601,6 +2595,24 @@ button.allega {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+}
+
+/* Ambienti, nel menu: un pulsante che apre il pannello, fatto come le altre voci. */
+.voci-pagine button.voce {
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.voci-pagine button.voce:hover {
+  background: var(--sfondo);
+}
+
+.voci-pagine button.voce.attuale {
+  background: var(--fumetto);
 }
 
 .voci-pagine .quanti {
@@ -5083,6 +5095,51 @@ button.pericolo {
   font-size: 0.75rem;
 }
 
+/* Scaricare: un'icona in fondo a ogni riga, alla cartella aperta e al file in anteprima. */
+.riga-file {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.riga-file .voce-file {
+  flex: 1;
+  min-width: 0;
+}
+
+.scarica-file {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--tenue);
+}
+
+.scarica-file:hover,
+.scarica-file:focus-visible {
+  background: var(--sfondo);
+  color: var(--testo);
+}
+
+/* Sugli schermi con il mouse l'icona di una riga compare passandoci sopra; al tocco c'è sempre. */
+@media (hover: hover) {
+  .riga-file .scarica-file {
+    opacity: 0;
+  }
+
+  .riga-file:hover .scarica-file,
+  .riga-file .scarica-file:focus-visible {
+    opacity: 1;
+  }
+}
+
+.briciole .scarica-file,
+.barra-file .scarica-file {
+  margin-left: auto;
+}
+
 .anteprima-file {
   display: grid;
   gap: var(--s-2);
@@ -6411,4 +6468,114 @@ kbd {
 
 .conferma-sicurezza p {
   margin: 0 0 var(--s-2);
+}
+
+/* Le cartelle collegate di un progetto, nella scheda della sessione (ADR 0050). */
+.cartelle-collegate {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+.cartelle-collegate h4 {
+  margin: 0;
+  font-size: var(--t-piccolo);
+  font-weight: 600;
+  color: var(--tenue);
+}
+
+.cartelle-collegate ul {
+  display: grid;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartelle-collegate li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.cartelle-collegate code {
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+}
+
+.cartelle-collegate form {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.cartelle-collegate label {
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-piccolo);
+}
+
+/* Chi implementa gli incarichi di un progetto, nella scheda della sessione (ADR 0051). */
+.chi-implementa {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+.chi-implementa h4 {
+  margin: 0;
+  font-size: var(--t-piccolo);
+  font-weight: 600;
+  color: var(--tenue);
+}
+
+.chi-implementa p {
+  margin: 0;
+}
+
+.chi-implementa .scelte {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+.chi-implementa .scelte select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chi-implementa .pulsanti {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+/* Una pagina che non si è potuta mostrare: l'avviso al suo posto, la barra laterale resta. */
+.avviso-pagina-rotta {
+  max-width: 40rem;
+  margin: var(--s-5) auto;
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-2);
+}
+
+.avviso-pagina-rotta h2 {
+  margin: 0;
+}
+
+.avviso-pagina-rotta p {
+  margin: 0;
+}
+
+.avviso-pagina-rotta code {
+  overflow-wrap: anywhere;
+}
+
+/* Avvia con Windows, nella scheda di un ambiente. */
+.avvio-con-windows {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.875rem;
 }

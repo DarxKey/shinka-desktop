@@ -2,12 +2,13 @@
  * Il pannello File: sfogliare e cercare i file del progetto, e guardarne uno in anteprima. Il
  * testo e il codice si leggono con il colore della sintassi e i numeri di riga, e ogni riga si può
  * commentare: i commenti partono con il prossimo messaggio. Immagini, PDF, video e audio si vedono
- * come nel browser; il Markdown impaginato, o nel suo sorgente. Solo lettura.
+ * come nel browser; il Markdown impaginato, o nel suo sorgente. Ogni file si scarica così com'è, e
+ * ogni cartella, anche il progetto intero, come ZIP (ADR 0048). Solo lettura.
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { genereDelFile, linguaggioDi, type ElencoCartella, type FileTrovati } from "../../src/protocollo/file-progetto.ts";
-import { baseDelProgetto, cercaFile, elencaFile, indirizzoDelFile, leggiTestoDelFile } from "./api.ts";
+import { baseDelProgetto, cercaFile, elencaFile, indirizzoDaScaricare, indirizzoDelFile, leggiTestoDelFile } from "./api.ts";
 import { aggiungiCommento, useCommenti } from "./commenti.ts";
 import { Formattato } from "./Elementi.tsx";
 
@@ -18,6 +19,18 @@ function dimensioneInParole(byte: number): string {
   if (byte < 1024) return `${byte} B`;
   if (byte < 1024 * 1024) return `${Math.round(byte / 1024)} KB`;
   return `${(byte / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Il pulsante per scaricare: un file così com'è, una cartella come ZIP. */
+function Scarica({ idProgetto, percorso, cartella, nome }: { idProgetto: string; percorso: string; cartella: boolean; nome: string }): ReactNode {
+  const titolo = cartella ? `Scarica ${nome} (ZIP)` : `Scarica ${nome}`;
+  return (
+    <a className="scarica-file" href={indirizzoDaScaricare(idProgetto, percorso)} download aria-label={titolo} title={titolo}>
+      <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 3v9.5M6 9l4 4 4-4M4 16.5h12" />
+      </svg>
+    </a>
+  );
 }
 
 export function PannelloFile({ idProgetto }: { idProgetto: string }): ReactNode {
@@ -75,6 +88,7 @@ export function PannelloFile({ idProgetto }: { idProgetto: string }): ReactNode 
           <code className="percorso-file" title={scelto}>
             {scelto}
           </code>
+          <Scarica idProgetto={idProgetto} percorso={scelto} cartella={false} nome={scelto.split("/").pop() ?? scelto} />
         </div>
         <Anteprima idProgetto={idProgetto} percorso={scelto} />
       </div>
@@ -90,10 +104,16 @@ export function PannelloFile({ idProgetto }: { idProgetto: string }): ReactNode 
         <ul className="elenco-file" aria-label="File trovati">
           {trovati.percorsi.length === 0 && <li className="tenue">Nessun file con questo nome.</li>}
           {trovati.percorsi.map((percorso) => (
-            <li key={percorso}>
+            <li key={percorso} className="riga-file">
               <button type="button" className="discreto voce-file" onClick={() => apri(percorso)}>
                 <span aria-hidden="true">{percorso.endsWith("/") ? "📁" : "📄"}</span> <code>{percorso}</code>
               </button>
+              <Scarica
+                idProgetto={idProgetto}
+                percorso={percorso.replace(/\/$/, "")}
+                cartella={percorso.endsWith("/")}
+                nome={percorso.replace(/\/$/, "").split("/").pop() ?? percorso}
+              />
             </li>
           ))}
           {trovati.incompleta && <li className="tenue">Ce ne sono altri: scrivi un nome più preciso.</li>}
@@ -112,17 +132,19 @@ export function PannelloFile({ idProgetto }: { idProgetto: string }): ReactNode 
                 </button>
               </span>
             ))}
+            <Scarica idProgetto={idProgetto} percorso={cartella} cartella nome={cartella === "" ? "il progetto intero" : `la cartella ${parti.at(-1) ?? ""}`} />
           </nav>
           <ul className="elenco-file" aria-label="File della cartella">
             {elenco?.voci.length === 0 && <li className="tenue">La cartella è vuota.</li>}
             {elenco?.voci.map((voce) => {
               const percorso = cartella === "" ? voce.nome : `${cartella}/${voce.nome}`;
               return (
-                <li key={voce.nome}>
+                <li key={voce.nome} className="riga-file">
                   <button type="button" className="discreto voce-file" onClick={() => apri(voce.cartella ? `${percorso}/` : percorso)}>
                     <span aria-hidden="true">{voce.cartella ? "📁" : "📄"}</span> <span className="nome">{voce.nome}</span>
                     {voce.dimensione !== undefined && <span className="tenue dimensione">{dimensioneInParole(voce.dimensione)}</span>}
                   </button>
+                  <Scarica idProgetto={idProgetto} percorso={percorso} cartella={voce.cartella} nome={voce.nome} />
                 </li>
               );
             })}
@@ -173,7 +195,7 @@ function Anteprima({ idProgetto, percorso }: { idProgetto: string; percorso: str
       return (
         <div className="anteprima-file">
           <p className="tenue">Per questo tipo di file non c'è un'anteprima.</p>
-          <a href={indirizzo} download={percorso.split("/").pop()}>
+          <a href={indirizzoDaScaricare(idProgetto, percorso)} download>
             Scarica il file
           </a>
         </div>

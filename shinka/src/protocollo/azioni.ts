@@ -25,6 +25,13 @@ export type AzioneInAmbiente =
   /** Scrive un file di testo. Un percorso relativo parte dalla cartella dell'argomento. */
   | { tipo: "scrivi-file"; percorso: string; contenuto: string }
   | { tipo: "leggi-file"; percorso: string }
+  /**
+   * Cambia un pezzo di un file di testo: `vecchio` deve comparire una volta sola, o con `tutte`
+   * ogni volta che compare. Per i progetti nelle cartelle collegate (ADR 0050).
+   */
+  | { tipo: "modifica-file"; percorso: string; vecchio: string; nuovo: string; tutte?: boolean }
+  /** Dice se la cartella collegata c'è, e il suo percorso vero. Solo per le cartelle collegate. */
+  | { tipo: "controlla-cartella" }
   /** Elenca i file della cartella dell'argomento, senza crearla se non c'è. */
   | { tipo: "elenca-file" }
   /**
@@ -103,8 +110,17 @@ export function leggiAzione(letta: unknown): AzioneInAmbiente | undefined {
       if (percorso === undefined || percorso.trim() === "") return undefined;
       return { tipo: "leggi-file", percorso };
     }
+    case "modifica-file": {
+      const percorso = testo("percorso", PERCORSO_MASSIMO);
+      const vecchio = testo("vecchio", CONTENUTO_MASSIMO);
+      const nuovo = testo("nuovo", CONTENUTO_MASSIMO, 0);
+      if (percorso === undefined || percorso.trim() === "" || vecchio === undefined || nuovo === undefined || vecchio === nuovo) return undefined;
+      return { tipo: "modifica-file", percorso, vecchio, nuovo, ...(campi.tutte === true ? { tutte: true } : {}) };
+    }
     case "elenca-file":
       return { tipo: "elenca-file" };
+    case "controlla-cartella":
+      return { tipo: "controlla-cartella" };
     case "leggi-elaborato": {
       const percorso = campi.percorso;
       return percorsoDiElaboratoValido(percorso) ? { tipo: "leggi-elaborato", percorso } : undefined;

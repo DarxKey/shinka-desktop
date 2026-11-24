@@ -19,6 +19,33 @@ export interface Progetto {
   fissato?: true;
 }
 
+/**
+ * Una cartella di un altro ambiente collegata a un progetto (ADR 0050): il progetto vive nel suo
+ * ambiente, con il suo motore, e lì lavora anche con gli strumenti di Shinka.
+ */
+export interface CartellaCollegata {
+  idAmbiente: string;
+  /** Il percorso completo, in quell'ambiente. */
+  cartella: string;
+}
+
+/** Una cartella collegata come la vede chi guarda il progetto: con l'ambiente in parole e se è acceso. */
+export interface CartellaCollegataInVista extends CartellaCollegata {
+  nomeAmbiente: string;
+  sistema: string;
+  attivo: boolean;
+}
+
+/** Le cartelle collegate di un progetto, e gli ambienti in cui se ne può collegare una. */
+export interface StatoCollegate {
+  collegate: CartellaCollegataInVista[];
+  /** Gli altri ambienti attivi, oltre a quello del progetto e a quelli già collegati. */
+  possibili: { idAmbiente: string; nomeAmbiente: string; sistema: string }[];
+}
+
+/** Quante cartelle collegate può avere un progetto. */
+export const COLLEGATE_MASSIME = 4;
+
 /** Quanto può essere lungo il nome di un progetto. */
 export const NOME_PROGETTO_MASSIMO = 60;
 

@@ -1,6 +1,7 @@
 /**
- * I file di un progetto, per il pannello File: sfogliare una cartella, cercare un file per nome e
- * leggerne uno per l'anteprima. Solo lettura, e solo dentro la cartella del progetto. Qui stanno
+ * I file di un progetto, per il pannello File: sfogliare una cartella, cercare un file per nome,
+ * leggerne uno per l'anteprima e scaricare un file o una cartella, che arriva come ZIP. Solo
+ * lettura, e solo dentro la cartella del progetto. Qui stanno
  * ciò che il centro chiede a chi sta nell'ambiente e ciò che ne torna: dati semplici, in JSON.
  */
 
@@ -41,14 +42,30 @@ export const VOCI_GUARDATE_MASSIME = 50_000;
 /** Le cartelle che la ricerca salta: dipendenze, costruzioni, repository. */
 export const CARTELLE_SALTATE = new Set([".git", "node_modules", "dist", "build", ".venv", "venv", "__pycache__", ".next", "target", ".cache"]);
 
+/** Quanto è grande un pezzo di uno scaricamento, prima del base64. */
+export const PEZZO_SCARICATO = 256 * 1024;
+/** Quanti pezzi chi scarica manda prima di aspettare che il centro dica di andare avanti. */
+export const FINESTRA_SCARICAMENTO = 8;
+
 /** Ciò che il centro chiede a chi tiene i file dei progetti di un ambiente. */
 export type ComandoFile =
   | { tipo: "file-elenca"; idRichiesta: string; cartella: string; percorso: string }
   | { tipo: "file-cerca"; idRichiesta: string; cartella: string; testo: string }
-  | { tipo: "file-leggi"; idRichiesta: string; cartella: string; percorso: string };
+  | { tipo: "file-leggi"; idRichiesta: string; cartella: string; percorso: string }
+  /** Un file così com'è, o una cartella come ZIP, a pezzi. */
+  | { tipo: "file-scarica"; idRichiesta: string; cartella: string; percorso: string }
+  /** Il centro ha passato altri pezzi a chi scarica: se ne possono mandare altrettanti. */
+  | { tipo: "file-scarica-avanti"; idRichiesta: string; quanti: number }
+  | { tipo: "file-scarica-annulla"; idRichiesta: string };
 
 /** Ciò che torna: l'esito, oppure un motivo. Il centro lo legge secondo ciò che aveva chiesto. */
-export type RiferitoFile = { tipo: "file-esito"; idRichiesta: string; esito: unknown };
+export type RiferitoFile =
+  | { tipo: "file-esito"; idRichiesta: string; esito: unknown }
+  /** Comincia uno scaricamento: il nome del file da salvare, e la dimensione se si sa già. */
+  | { tipo: "file-scarica-inizio"; idRichiesta: string; nome: string; comeArchivio: boolean; dimensione?: number }
+  | { tipo: "file-scarica-pezzo"; idRichiesta: string; dati: string }
+  | { tipo: "file-scarica-fine"; idRichiesta: string }
+  | { tipo: "file-scarica-errore"; idRichiesta: string; motivo: string };
 
 export interface PortaFile {
   esegui(comando: ComandoFile): void;
@@ -69,11 +86,18 @@ function testo(campi: Record<string, unknown>, nome: string, massimo: number): s
 
 export function leggiComandoFile(campi: Record<string, unknown>): ComandoFile | undefined {
   const idRichiesta = testo(campi, "idRichiesta", 100);
+  if (idRichiesta === undefined || idRichiesta === "") return undefined;
+  if (campi.tipo === "file-scarica-avanti") {
+    const quanti = campi.quanti;
+    return typeof quanti === "number" && Number.isInteger(quanti) && quanti > 0 && quanti <= 1000 ? { tipo: "file-scarica-avanti", idRichiesta, quanti } : undefined;
+  }
+  if (campi.tipo === "file-scarica-annulla") return { tipo: "file-scarica-annulla", idRichiesta };
   const cartella = testo(campi, "cartella", 1000);
-  if (idRichiesta === undefined || idRichiesta === "" || cartella === undefined || cartella === "") return undefined;
+  if (cartella === undefined || cartella === "") return undefined;
   switch (campi.tipo) {
     case "file-elenca":
     case "file-leggi":
+    case "file-scarica":
       return percorsoRelativoValido(campi.percorso) ? { tipo: campi.tipo, idRichiesta, cartella, percorso: campi.percorso } : undefined;
     case "file-cerca": {
       const cercato = testo(campi, "testo", 200);
@@ -85,9 +109,28 @@ export function leggiComandoFile(campi: Record<string, unknown>): ComandoFile | 
 }
 
 export function leggiRiferitoFile(campi: Record<string, unknown>): RiferitoFile | undefined {
-  if (campi.tipo !== "file-esito") return undefined;
   const idRichiesta = testo(campi, "idRichiesta", 100);
-  return idRichiesta === undefined ? undefined : { tipo: "file-esito", idRichiesta, esito: campi.esito };
+  if (idRichiesta === undefined) return undefined;
+  switch (campi.tipo) {
+    case "file-esito":
+      return { tipo: "file-esito", idRichiesta, esito: campi.esito };
+    case "file-scarica-inizio": {
+      const nome = testo(campi, "nome", 300);
+      if (nome === undefined || nome === "" || typeof campi.comeArchivio !== "boolean") return undefined;
+      const dimensione = typeof campi.dimensione === "number" && Number.isFinite(campi.dimensione) && campi.dimensione >= 0 ? campi.dimensione : undefined;
+      return { tipo: "file-scarica-inizio", idRichiesta, nome, comeArchivio: campi.comeArchivio, ...(dimensione === undefined ? {} : { dimensione }) };
+    }
+    case "file-scarica-pezzo": {
+      const dati = testo(campi, "dati", Math.ceil((PEZZO_SCARICATO * 4) / 3) + 8);
+      return dati === undefined ? undefined : { tipo: "file-scarica-pezzo", idRichiesta, dati };
+    }
+    case "file-scarica-fine":
+      return { tipo: "file-scarica-fine", idRichiesta };
+    case "file-scarica-errore":
+      return { tipo: "file-scarica-errore", idRichiesta, motivo: testo(campi, "motivo", 2000) ?? "Lo scaricamento non è riuscito." };
+    default:
+      return undefined;
+  }
 }
 
 export function leggiElenco(valore: unknown): ElencoCartella | undefined {

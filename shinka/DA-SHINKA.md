@@ -4,10 +4,10 @@ Questa cartella è una copia di parti di [Shinka](https://github.com/DarxKey/Shi
 
 | Qui | In Shinka | Versione | Modifiche |
 |---|---|---|---|
-| `src/protocollo/` | `src/protocollo/` (senza le prove) | `f43fe24` | nessuna |
-| `web/src/` | `web/src/` (senza le prove) | `2367123` | vedi sotto |
-| `web/public/` | `web/public/` (senza service worker e manifest) | `2367123` | nessuna |
-| `src/centro/notifiche-app.ts`, `src/centro/web-push.ts` | gli omonimi | `2367123` | solo i tipi che la pagina importa |
+| `src/protocollo/` | `src/protocollo/` (senza le prove) | `2e3e53e` | nessuna |
+| `web/src/` | `web/src/` (senza le prove) | `2e3e53e` | vedi sotto |
+| `web/public/` | `web/public/` (senza service worker e manifest) | `2e3e53e` | nessuna |
+| `src/centro/notifiche-app.ts`, `src/centro/web-push.ts` | gli omonimi | `2e3e53e` | solo i tipi che la pagina importa |
 
 ## File di `web/src/` cambiati rispetto a Shinka
 

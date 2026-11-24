@@ -1,5 +1,6 @@
 /** Chiamate dal browser al centro. */
 
+import type { ChiImplementa, StatoChiImplementa } from "../../src/protocollo/incarichi.ts";
 import type { ScelteAvvisi } from "../../src/protocollo/avvisi.ts";
 import type { DettaglioDellAmbiente } from "../../src/protocollo/risorse.ts";
 import type { StatoNotifiche } from "../../src/centro/notifiche-app.ts";
@@ -22,6 +23,8 @@ import type { StatoHttps } from "../../src/protocollo/https.ts";
 import type { DettaglioSkill, VersioniSkill } from "../../src/protocollo/skill.ts";
 import type { DettaglioVault } from "../../src/protocollo/vault.ts";
 import type { StatoSicurezza } from "../../src/protocollo/sicurezza.ts";
+import type { RichiestaDiPubblicazione, StatoDesktop } from "../../src/protocollo/desktop.ts";
+import type { StatoCollegate } from "../../src/protocollo/progetti.ts";
 import type { CopiaCaricata, CopiaPronta, EsitoTrasloco, ScelteDelTrasloco, StatoCopie } from "../../src/protocollo/copia.ts";
 
 export interface StatoAccesso {
@@ -209,6 +212,11 @@ export async function cercaFile(idProgetto: string, testo: string): Promise<File
 }
 
 /** L'indirizzo da cui il browser legge un file del progetto: per immagini, PDF, video e audio. */
+/** Dove si scarica un file del progetto così com'è, o una cartella come ZIP; il percorso vuoto è il progetto intero. */
+export function indirizzoDaScaricare(idProgetto: string, percorso: string): string {
+  return `${baseDelProgetto(idProgetto)}/file/scarica?percorso=${encodeURIComponent(percorso)}`;
+}
+
 export function indirizzoDelFile(idProgetto: string, percorso: string): string {
   return `${baseDelProgetto(idProgetto)}/file/contenuto?percorso=${encodeURIComponent(percorso)}`;
 }
@@ -492,6 +500,11 @@ export async function leggiRisorseAmbiente(id: string): Promise<DettaglioDellAmb
 }
 
 /** Chiede al nodo di un ambiente di passare alla versione del centro. */
+/** Fa partire un nodo Windows a ogni accesso, oppure no. */
+export async function impostaAvvioConWindows(idAmbiente: string, attivo: boolean): Promise<{ attivo: boolean }> {
+  return (await chiama("POST", `/api/ambienti/${encodeURIComponent(idAmbiente)}/avvio-con-windows`, { attivo })) as { attivo: boolean };
+}
+
 export async function aggiornaAmbiente(id: string): Promise<void> {
   await chiama("POST", `/api/ambienti/${encodeURIComponent(id)}/aggiornamento`);
 }
@@ -581,6 +594,44 @@ export async function leggiSicurezza(soloDaGuardare: boolean): Promise<StatoSicu
 }
 
 /** Chiude una sessione dal suo identificativo: quel dispositivo dovrà rientrare. */
+/** Le cartelle collegate di un progetto in altri ambienti, e gli ambienti in cui se ne può collegare una. */
+export async function leggiCollegate(idProgetto: string): Promise<StatoCollegate> {
+  return (await chiama("GET", `${baseDelProgetto(idProgetto)}/collegate`)) as StatoCollegate;
+}
+
+export async function collegaCartella(idProgetto: string, idAmbiente: string, cartella: string): Promise<StatoCollegate> {
+  return (await chiama("POST", `${baseDelProgetto(idProgetto)}/collegate`, { idAmbiente, cartella })) as StatoCollegate;
+}
+
+export async function scollegaCartella(idProgetto: string, idAmbiente: string): Promise<StatoCollegate> {
+  return (await chiama("DELETE", `${baseDelProgetto(idProgetto)}/collegate/${encodeURIComponent(idAmbiente)}`)) as StatoCollegate;
+}
+
+/** Chi implementa gli incarichi del progetto (ADR 0051). */
+export async function leggiChiImplementa(idProgetto: string): Promise<StatoChiImplementa> {
+  return (await chiama("GET", `${baseDelProgetto(idProgetto)}/chi-implementa`)) as StatoChiImplementa;
+}
+
+/** Sceglie chi implementa, o con null torna a un modello solo. */
+export async function cambiaChiImplementa(idProgetto: string, chiImplementa: ChiImplementa | null): Promise<StatoChiImplementa> {
+  return (await chiama("PUT", `${baseDelProgetto(idProgetto)}/chi-implementa`, { chiImplementa })) as StatoChiImplementa;
+}
+
+/** La versione di Shinka Desktop che il centro serve agli aggiornamenti. */
+export async function leggiDesktop(): Promise<StatoDesktop> {
+  return (await chiama("GET", "/api/desktop")) as StatoDesktop;
+}
+
+/** Pubblica una versione di Shinka Desktop presa dalla cartella di un progetto. */
+export async function pubblicaDesktop(richiesta: RichiestaDiPubblicazione): Promise<StatoDesktop> {
+  return (await chiama("POST", "/api/desktop/pubblicazione", richiesta)) as StatoDesktop;
+}
+
+/** Toglie un dispositivo: il suo gettone non vale più. */
+export async function togliDispositivo(id: string): Promise<void> {
+  await chiama("POST", `/api/sicurezza/dispositivi/${encodeURIComponent(id)}/chiusura`);
+}
+
 export async function chiudiSessione(id: string): Promise<void> {
   await chiama("POST", `/api/sicurezza/sessioni/${encodeURIComponent(id)}/chiusura`);
 }

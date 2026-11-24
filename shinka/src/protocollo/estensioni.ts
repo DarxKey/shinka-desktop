@@ -1,3 +1,5 @@
+import { IMPEGNI, type Impegno } from "./impostazioni.ts";
+
 /**
  * Le estensioni: codice di terzi che aggiunge strumenti alle conversazioni. Shinka ne tiene un
  * elenco al centro, e per ognuna dice in quali ambienti è accesa. Sono dati semplici,
@@ -23,6 +25,30 @@ export type DefinizioneEstensione =
       commit: string;
       /** La cartella del plugin dentro il repository, se non è la radice. */
       cartella?: string;
+    }
+  /**
+   * Un modello che gira su questa macchina, con un server che parla come l'API di Anthropic (per
+   * esempio llama-server): il nodo lo accende quando una conversazione lo vuole, e lo spegne quando
+   * resta fermo (ADR 0051). Le conversazioni ci parlano con Claude Code.
+   */
+  | {
+      tipo: "modello-locale";
+      /** Il programma del server, avviato direttamente: per esempio il percorso di llama-server.exe. */
+      comando: string;
+      /** Gli argomenti; "{impegno}" diventa l'impegno con cui il server parte. */
+      argomenti: string[];
+      /** Variabili d'ambiente che non sono segreti. */
+      variabili: Record<string, string>;
+      /** La porta su cui il server ascolta, su 127.0.0.1. */
+      porta: number;
+      /** Il nome con cui il server chiama il modello. */
+      modello: string;
+      /** Quanti token di contesto ha il server. */
+      contesto: number;
+      /** Quanti token può scrivere una risposta, ragionamento compreso. */
+      uscita: number;
+      /** Gli impegni che il server accetta al posto di "{impegno}"; il primo è il predefinito. */
+      impegni: Impegno[];
     };
 
 export type TipoEstensione = DefinizioneEstensione["tipo"];
@@ -91,6 +117,25 @@ export type EsitoProva =
   /** `riprovabile` è vero quando manca solo qualcosa che il proprietario può mettere a posto, come una chiave nel vault. */
   | { riuscita: false; motivo: string; riprovabile?: true };
 
+/** Come comincia il valore di un modello locale nella scelta del modello: "locale:" e il nome dell'estensione. */
+export const PREFISSO_MODELLO_LOCALE = "locale:";
+
+/** Il valore con cui si sceglie il modello locale di un'estensione. */
+export function valoreDelModelloLocale(nomeEstensione: string): string {
+  return `${PREFISSO_MODELLO_LOCALE}${nomeEstensione}`;
+}
+
+/** Il nome dell'estensione di un modello locale scelto, o nulla se il modello scelto non è locale. */
+export function estensioneDelModello(modello: string | undefined): string | undefined {
+  return modello?.startsWith(PREFISSO_MODELLO_LOCALE) === true ? modello.slice(PREFISSO_MODELLO_LOCALE.length) : undefined;
+}
+
+/** Quanto si aspetta che un modello locale si carichi e risponda. */
+export const ATTESA_MODELLO_LOCALE_MS = 240_000;
+
+/** Dopo quanto tempo senza conversazioni che lo usano un modello locale si spegne. */
+export const MODELLO_LOCALE_FERMO_MS = 10 * 60 * 1000;
+
 /** Le chiavi di un'estensione, consegnate dal vault nel momento in cui parte. */
 export type ChiaviConsegnate = { valori: Record<string, string> } | { motivo: string };
 
@@ -116,7 +161,7 @@ export interface StatoEstensioni {
 export const ATTESA_PROVA_MS = 90_000;
 
 /** Quanto si aspetta che un ambiente risponda a una prova: il tempo della prova, più quello per prendere un plugin. */
-export const ATTESA_AMBIENTE_MS = ATTESA_PROVA_MS + 90_000;
+export const ATTESA_AMBIENTE_MS = ATTESA_MODELLO_LOCALE_MS + 90_000;
 
 /** Quante skill dell'ambiente si elencano per nome. */
 export const SKILL_ELENCATE = 60;
@@ -154,6 +199,11 @@ export function inUnaRiga(definizione: DefinizioneEstensione): string {
       return definizione.indirizzo;
     case "plugin":
       return `${definizione.repository} @ ${definizione.commit.slice(0, 12)}${definizione.cartella === undefined ? "" : ` (${definizione.cartella})`}`;
+    case "modello-locale":
+      return [definizione.comando, ...definizione.argomenti].map((parte) => (/\s/.test(parte) ? `"${parte}"` : parte)).join(" ");
+    default:
+      // Un tipo che questa versione non conosce, arrivato da un centro più nuovo: lo si mostra com'è.
+      return JSON.stringify(definizione);
   }
 }
 
@@ -173,6 +223,15 @@ export function definizioneInChiaro(definizione: DefinizioneEstensione): string[
         `commit ${definizione.commit}`,
         ...(definizione.cartella === undefined ? [] : [`cartella ${definizione.cartella}`]),
       ];
+    case "modello-locale":
+      return [
+        inUnaRiga(definizione),
+        ...Object.entries(definizione.variabili).map(([nome, valore]) => `${nome}=${valore}`),
+        `modello ${definizione.modello} su 127.0.0.1:${definizione.porta}, contesto ${definizione.contesto} token, risposte fino a ${definizione.uscita}`,
+        `impegni: ${definizione.impegni.join(", ")}`,
+      ];
+    default:
+      return [JSON.stringify(definizione, null, 2)];
   }
 }
 
@@ -200,6 +259,10 @@ export function tipoInParole(tipo: TipoEstensione): string {
       return "Server MCP remoto";
     case "plugin":
       return "Plugin di Claude Code";
+    case "modello-locale":
+      return "Modello locale";
+    default:
+      return String(tipo);
   }
 }
 
@@ -227,6 +290,14 @@ export function avvisiDellaDefinizione(definizione: DefinizioneEstensione, conte
       if (pacchetto !== undefined && !/.@\d/.test(pacchetto) && !/==\d/.test(pacchetto)) {
         avvisi.push(`La versione di "${pacchetto}" non è scritta nel comando: a ogni avvio può arrivare codice diverso da quello di oggi.`);
       }
+    }
+  } else if (definizione.tipo === "modello-locale") {
+    avvisi.push(
+      "È un programma che gira nell'ambiente con gli stessi accessi dei progetti: il nodo lo accende quando una conversazione sceglie questo modello, e lo spegne dopo dieci minuti senza nessuna che lo usi.",
+    );
+    avvisi.push("Usa la scheda video e la memoria di quella macchina mentre è acceso.");
+    if (!definizione.argomenti.some((uno) => uno.includes("{impegno}"))) {
+      avvisi.push("Negli argomenti non c'è \"{impegno}\": il server parte sempre allo stesso modo, e l'impegno non si può scegliere.");
     }
   } else if (definizione.tipo === "mcp-remoto") {
     avvisi.push("Ciò che le conversazioni mandano a questo indirizzo esce da Shinka: lo riceve chi gestisce quel servizio.");
@@ -292,6 +363,28 @@ export function leggiDefinizione(valore: unknown): DefinizioneEstensione | undef
         commit: campi.commit,
         ...(campi.cartella === undefined ? {} : { cartella: campi.cartella }),
       };
+    case "modello-locale": {
+      const variabili = oggetto(campi.variabili);
+      if (typeof campi.comando !== "string" || campi.comando.trim() === "" || variabili === undefined) return undefined;
+      if (!Array.isArray(campi.argomenti) || !campi.argomenti.every((uno) => typeof uno === "string")) return undefined;
+      if (!Object.entries(variabili).every(([nome, scritto]) => nomeDiChiaveValido(nome) && typeof scritto === "string")) return undefined;
+      const intero = (valore: unknown, minimo: number, massimo: number): valore is number =>
+        typeof valore === "number" && Number.isInteger(valore) && valore >= minimo && valore <= massimo;
+      if (!intero(campi.porta, 1, 65535) || !intero(campi.contesto, 1024, 10_000_000) || !intero(campi.uscita, 256, 1_000_000)) return undefined;
+      if (typeof campi.modello !== "string" || !/^[A-Za-z0-9._:/-]{1,120}$/.test(campi.modello)) return undefined;
+      if (!Array.isArray(campi.impegni) || campi.impegni.length === 0 || !campi.impegni.every((uno) => IMPEGNI.includes(uno as Impegno))) return undefined;
+      return {
+        tipo: "modello-locale",
+        comando: campi.comando,
+        argomenti: campi.argomenti as string[],
+        variabili: variabili as Record<string, string>,
+        porta: campi.porta,
+        modello: campi.modello,
+        contesto: campi.contesto,
+        uscita: campi.uscita,
+        impegni: [...new Set(campi.impegni as Impegno[])],
+      };
+    }
     default:
       return undefined;
   }

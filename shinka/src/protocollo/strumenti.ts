@@ -13,6 +13,7 @@
 import type { Immagine } from "./allegati.ts";
 import { ATTESA_AVVIO_MS } from "./applicazioni.ts";
 import { SECONDI_AVVIO_STACK, SECONDI_OPERAZIONE_STACK } from "./stack.ts";
+import { DURATA_INCARICO_MASSIMA_MS } from "./incarichi.ts";
 import { APPROVAZIONE_MS, SECONDI_COMANDO_SU_HOST, SECONDI_COMANDO_SU_HOST_MASSIMI } from "./vault.ts";
 
 /** Nome del gruppo: a Claude gli strumenti di Shinka compaiono come `mcp__shinka__…`. */
@@ -48,6 +49,12 @@ export const STRUMENTI_COMUNI = [
   "programma_lavoro",
   "elenca_programmati",
   "togli_programmato",
+  "cartelle_collegate",
+  "esegui_nella_collegata",
+  "leggi_nella_collegata",
+  "scrivi_nella_collegata",
+  "modifica_nella_collegata",
+  "affida_incarico",
 ] as const;
 
 export type StrumentoComune = (typeof STRUMENTI_COMUNI)[number];
@@ -64,9 +71,23 @@ export type StrumentoComune = (typeof STRUMENTI_COMUNI)[number];
  * da sé: a tenerli nel loro recinto è il gateway, nel momento in cui esegue. Eseguire un comando
  * su un host, aprire un sito, agire in una pagina e inserirvi una credenziale seguono invece il
  * modo dei permessi della conversazione. Proporre un lavoro programmato mostra una scheda, con cui
- * decide il proprietario (ADR 0035); toglierne uno segue il modo dei permessi.
+ * decide il proprietario (ADR 0035); toglierne uno segue il modo dei permessi. Affidare un incarico
+ * non chiede nulla: è chi implementa a chiedere, per ogni sua azione, ciò che il modo dei permessi
+ * del progetto vuole (ADR 0051).
  */
-const CON_RICHIESTA: readonly StrumentoComune[] = ["esegui_su_host", "apri_sito", "agisci_nel_sito", "inserisci_credenziale", "imposta_anteprima", "togli_programmato"];
+const CON_RICHIESTA: readonly StrumentoComune[] = [
+  "esegui_su_host",
+  "apri_sito",
+  "agisci_nel_sito",
+  "inserisci_credenziale",
+  "imposta_anteprima",
+  "togli_programmato",
+  // Nelle cartelle collegate, come nella cartella del progetto: comandi e file scritti seguono il
+  // modo dei permessi; leggere e sapere quali sono no (ADR 0050).
+  "esegui_nella_collegata",
+  "scrivi_nella_collegata",
+  "modifica_nella_collegata",
+];
 
 export const STRUMENTI_COMUNI_SENZA_RICHIESTA: readonly StrumentoComune[] = STRUMENTI_COMUNI.filter(
   (nome) => !CON_RICHIESTA.includes(nome),
@@ -76,7 +97,18 @@ export const STRUMENTI_COMUNI_SENZA_RICHIESTA: readonly StrumentoComune[] = STRU
  * Tra gli strumenti comuni, quelli che hanno solo le conversazioni dei progetti: la Home non ha
  * un'applicazione da mostrare, e una versione di Shinka la chiede solo il progetto Shinka.
  */
-export const STRUMENTI_SOLO_DEI_PROGETTI: readonly StrumentoComune[] = ["proponi_anteprima", "imposta_anteprima", "chiedi_installazione", "aggiorna_gateway"];
+export const STRUMENTI_SOLO_DEI_PROGETTI: readonly StrumentoComune[] = [
+  "proponi_anteprima",
+  "imposta_anteprima",
+  "chiedi_installazione",
+  "aggiorna_gateway",
+  "cartelle_collegate",
+  "esegui_nella_collegata",
+  "leggi_nella_collegata",
+  "scrivi_nella_collegata",
+  "modifica_nella_collegata",
+  "affida_incarico",
+];
 
 /** Gli strumenti che passano dal browser del gateway. */
 const DEL_BROWSER: readonly StrumentoComune[] = ["apri_sito", "leggi_sito", "agisci_nel_sito", "inserisci_credenziale", "chiudi_sito"];
@@ -130,6 +162,12 @@ export function attesaDelloStrumento(nome: StrumentoComune, argomenti: Record<st
   if (nome === "avvia_anteprima") return ATTESA_AVVIO_MS + base;
   // Salvare una credenziale in chiaro aspetta il sì del proprietario.
   if (nome === "salva_credenziale_in_chiaro" || nome === "programma_lavoro") return APPROVAZIONE_MS + base;
+  // Un incarico aspetta che chi implementa finisca, con i permessi che chiede strada facendo.
+  if (nome === "affida_incarico") return DURATA_INCARICO_MASSIMA_MS + base;
+  if (nome === "esegui_nella_collegata") {
+    const secondi = typeof argomenti.secondi === "number" && Number.isFinite(argomenti.secondi) ? argomenti.secondi : 120;
+    return Math.min(Math.max(secondi, 1), 600) * 1000 + base;
+  }
   if (nome !== "esegui_su_host") return base;
   const chiesti = typeof argomenti.secondi === "number" && Number.isFinite(argomenti.secondi) ? argomenti.secondi : SECONDI_COMANDO_SU_HOST;
   // Su un host per gli stack il comando aspetta prima l'approvazione del proprietario.

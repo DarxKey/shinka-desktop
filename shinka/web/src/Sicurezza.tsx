@@ -1,14 +1,22 @@
 /**
  * La pagina Sicurezza (ADR 0039): le sessioni aperte del proprietario, da chiudere una per una o
- * tutte insieme, e il registro delle richieste al centro: chi è entrato, da dove, e chi ha provato
- * senza riuscirci. In mezzo, il collegamento dei nodi con il centro (ADR 0040): quali sono cifrati,
+ * tutte insieme, i dispositivi con un gettone loro, come Shinka Desktop (ADR 0047), e il registro
+ * delle richieste al centro: chi è entrato, da dove, e chi ha provato senza riuscirci. In mezzo, il collegamento dei nodi con il centro (ADR 0040): quali sono cifrati,
  * e la scelta di accettare solo quelli.
  */
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { accessoInParole, DA_GUARDARE, settimanaInBreve, type SessioneInVista, type StatoSicurezza, type VoceAccesso } from "../../src/protocollo/sicurezza.ts";
+import {
+  accessoInParole,
+  DA_GUARDARE,
+  settimanaInBreve,
+  type DispositivoInVista,
+  type SessioneInVista,
+  type StatoSicurezza,
+  type VoceAccesso,
+} from "../../src/protocollo/sicurezza.ts";
 import type { Ambiente } from "../../src/protocollo/nodi.ts";
-import { accettaSoloNodiCifrati, chiudiLeAltreSessioni, chiudiSessione, leggiSicurezza } from "./api.ts";
+import { accettaSoloNodiCifrati, chiudiLeAltreSessioni, chiudiSessione, leggiSicurezza, togliDispositivo } from "./api.ts";
 import { momentoInBreve, oraInBreve } from "./descrivi.ts";
 
 export function PaginaSicurezza({ menu, ambienti }: { menu: ReactNode; ambienti: readonly Ambiente[] }): ReactNode {
@@ -91,6 +99,29 @@ export function PaginaSicurezza({ menu, ambienti }: { menu: ReactNode; ambienti:
                   </div>
                 )}
               </section>
+
+              {(stato.dispositivi?.length ?? 0) > 0 && (
+                <section aria-labelledby="titolo-dispositivi">
+                  <h2 className="titolo-sezione" id="titolo-dispositivi">
+                    Dispositivi
+                  </h2>
+                  <p className="tenue">
+                    Le app, come Shinka Desktop, che sono entrate una volta con la tua password e da lì usano un gettone loro. Un gettone vale finché
+                    viene usato e decade dopo novanta giorni fermo; cambiare la password li toglie tutti. Toglierne uno lo fa uscire subito.
+                  </p>
+                  <ul className="elenco-sessioni">
+                    {(stato.dispositivi ?? []).map((dispositivo) => (
+                      <Dispositivo
+                        key={dispositivo.id}
+                        dispositivo={dispositivo}
+                        questo={dispositivo.id === stato.questoDispositivo}
+                        lavoro={lavoro}
+                        allaRimozione={() => void fai(() => togliDispositivo(dispositivo.id))}
+                      />
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               {stato.nodi !== undefined && (
                 <CollegamentoDeiNodi
@@ -266,6 +297,59 @@ function Sessione({ sessione, questa, lavoro, allaChiusura }: { sessione: Sessio
         <span className="tenue">
           Usata l'ultima volta {momentoInBreve(sessione.vistaIl)}
           {altrove && <> da <span className="indirizzo">{sessione.vistaDa}</span></>}
+        </span>
+      )}
+    </li>
+  );
+}
+
+const NOMI_DEI_GENERI: Record<DispositivoInVista["genere"], string> = { desktop: "App per il computer" };
+
+function Dispositivo({
+  dispositivo,
+  questo,
+  lavoro,
+  allaRimozione,
+}: {
+  dispositivo: DispositivoInVista;
+  questo: boolean;
+  lavoro: boolean;
+  allaRimozione: () => void;
+}): ReactNode {
+  const [daConfermare, setDaConfermare] = useState(false);
+  const altrove = dispositivo.vistoDa !== undefined && dispositivo.vistoDa !== dispositivo.da;
+  return (
+    <li className={questo ? "sessione questa" : "sessione"}>
+      <div className="riga-sessione">
+        <span className="nome">{dispositivo.nome}</span>
+        {questo && <span className="marca-sessione">questo</span>}
+        {!daConfermare ? (
+          <button type="button" className="discreto piccolo" disabled={lavoro} onClick={() => setDaConfermare(true)}>
+            Togli
+          </button>
+        ) : (
+          <span className="pulsanti">
+            <button type="button" className="piccolo pericolo" disabled={lavoro} onClick={allaRimozione}>
+              Togli davvero
+            </button>
+            <button type="button" className="discreto piccolo" disabled={lavoro} onClick={() => setDaConfermare(false)}>
+              No
+            </button>
+          </span>
+        )}
+      </div>
+      <span className="tenue">
+        {NOMI_DEI_GENERI[dispositivo.genere] ?? dispositivo.genere}
+        {dispositivo.programma !== undefined && <> · {dispositivo.programma}</>}
+      </span>
+      <span className="tenue">
+        Aggiunto {momentoInBreve(dispositivo.aggiuntoIl)}
+        {dispositivo.da !== undefined && <> da <span className="indirizzo">{dispositivo.da}</span></>}
+      </span>
+      {dispositivo.vistoIl !== undefined && (
+        <span className="tenue">
+          Usato l'ultima volta {momentoInBreve(dispositivo.vistoIl)}
+          {altrove && <> da <span className="indirizzo">{dispositivo.vistoDa}</span></>}
         </span>
       )}
     </li>

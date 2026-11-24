@@ -145,4 +145,6 @@ export interface StatoConversazione {
   inSfondo?: number;
   /** Se nel pannello Modifiche entrano i file cambiati dai comandi: lo si sa dopo la prima fotografia dei file. */
   fileDeiComandi?: FileDeiComandi;
+  /** Il modello locale con cui parla la conversazione, se è uno di quelli, con il picco di memoria della scheda video (ADR 0051). */
+  modelloLocale?: { modello: string; vramPiccoMb?: number };
 }

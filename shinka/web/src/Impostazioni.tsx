@@ -15,6 +15,7 @@ import {
 import { SezioneHttps } from "./Https.tsx";
 import { frammentoDi } from "./vista.ts";
 import { SezioneCopiaDiSicurezza } from "./CopiaDiSicurezza.tsx";
+import { SezioneDesktop } from "./Desktop.tsx";
 
 /** Ogni quanto si guarda se un accesso a Codex si è concluso sul sito. */
 const OGNI_MS = 3000;
@@ -63,7 +64,7 @@ export function PaginaImpostazioni({ menu }: { menu: ReactNode }): ReactNode {
         {menu}
         <div className="titoli">
           <h1>Impostazioni</h1>
-          <span className="sottotitolo">Motori e accessi, ambiente del centro, notifiche, password, collegamento sicuro, copia di sicurezza</span>
+          <span className="sottotitolo">Motori e accessi, ambiente del centro, notifiche, password, collegamento sicuro, copia di sicurezza, Shinka Desktop</span>
         </div>
       </header>
       <div className="corpo-pagina">
@@ -136,6 +137,7 @@ export function PaginaImpostazioni({ menu }: { menu: ReactNode }): ReactNode {
           <CambioPassword />
           <SezioneHttps />
           <SezioneCopiaDiSicurezza />
+          <SezioneDesktop />
           <section aria-labelledby="titolo-pacchetto">
             <h2 id="titolo-pacchetto">Un'altra installazione</h2>
             <p className="tenue">

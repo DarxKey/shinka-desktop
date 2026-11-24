@@ -1,39 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { DecisionePermesso } from "../../src/protocollo/eventi.ts";
 import type { Ambiente, RichiestaCollegamento, StatoAmbienti } from "../../src/protocollo/nodi.ts";
-import { aggiornaAmbiente, decidiRichiesta, invitaAmbiente, rimuoviAmbiente, type InvitoAmbiente } from "./api.ts";
+import { aggiornaAmbiente, decidiRichiesta, impostaAvvioConWindows, invitaAmbiente, rimuoviAmbiente, type InvitoAmbiente } from "./api.ts";
 import { copia } from "./copia.ts";
 import { frammentoDi } from "./vista.ts";
 import { collegamentoAmbiente, sottotitoloAmbiente as sottotitolo, versioneAmbiente } from "./descrivi.ts";
-
-export function PulsanteAmbienti({
-  stato,
-  aperto,
-  alClic,
-}: {
-  stato: StatoAmbienti | undefined;
-  aperto: boolean;
-  alClic: () => void;
-}): ReactNode {
-  const attivi = stato?.ambienti.filter((a) => a.attivo).length ?? 0;
-  const totale = stato?.ambienti.length ?? 0;
-  const richieste = stato?.richieste.length ?? 0;
-  return (
-    <button type="button" className="discreto pulsante-ambienti" aria-expanded={aperto} onClick={alClic}>
-      Ambienti
-      {stato !== undefined && (
-        <span className="conteggio" aria-label={`${attivi} attivi su ${totale}`}>
-          {attivi}/{totale}
-        </span>
-      )}
-      {richieste > 0 && (
-        <span className="segnale" aria-label={`${richieste} richieste di collegamento in attesa`}>
-          {richieste}
-        </span>
-      )}
-    </button>
-  );
-}
 
 export function PannelloAmbienti({
   stato,
@@ -72,10 +43,10 @@ export function PannelloAmbienti({
           )}
           <ul className="elenco-ambienti">
             {stato.ambienti.map((ambiente) => (
-              <VistaAmbiente key={ambiente.id} ambiente={ambiente} allaChiusura={allaChiusura} />
+              <VistaAmbiente key={ambiente.id} ambiente={ambiente} indirizzoNoto={indirizzoNoto(stato)} allaChiusura={allaChiusura} />
             ))}
           </ul>
-          <AggiungiAmbiente />
+          <AggiungiAmbiente indirizzoNoto={indirizzoNoto(stato)} />
         </>
       )}
     </section>
@@ -128,8 +99,10 @@ function VistaRichiesta({ richiesta }: { richiesta: RichiestaCollegamento }): Re
   );
 }
 
-function VistaAmbiente({ ambiente, allaChiusura }: { ambiente: Ambiente; allaChiusura: () => void }): ReactNode {
+function VistaAmbiente({ ambiente, indirizzoNoto, allaChiusura }: { ambiente: Ambiente; indirizzoNoto: string | undefined; allaChiusura: () => void }): ReactNode {
   const [daConfermare, setDaConfermare] = useState(false);
+  const [reinstalla, setReinstalla] = useState(false);
+  const [cambiaAvvio, setCambiaAvvio] = useState(false);
   const [daAggiornare, setDaAggiornare] = useState(false);
   const [errore, setErrore] = useState<string>();
   const versione = versioneAmbiente(ambiente);
@@ -144,6 +117,18 @@ function VistaAmbiente({ ambiente, allaChiusura }: { ambiente: Ambiente; allaChi
       await aggiornaAmbiente(ambiente.id);
     } catch (causa) {
       setErrore(causa instanceof Error ? causa.message : "Aggiornamento non avviato.");
+    }
+  }
+
+  async function avvioConWindows(attivo: boolean): Promise<void> {
+    setErrore(undefined);
+    setCambiaAvvio(true);
+    try {
+      await impostaAvvioConWindows(ambiente.id, attivo);
+    } catch (causa) {
+      setErrore(causa instanceof Error ? causa.message : "Non è cambiato.");
+    } finally {
+      setCambiaAvvio(false);
     }
   }
 
@@ -184,6 +169,16 @@ function VistaAmbiente({ ambiente, allaChiusura }: { ambiente: Ambiente; allaChi
           L'aggiornamento alla versione {aggiornamento.versione} non è riuscito. {aggiornamento.motivo}
         </p>
       )}
+      {ambiente.attivo && ambiente.avvioConWindows !== undefined && (
+        <label className="avvio-con-windows">
+          <input type="checkbox" checked={ambiente.avvioConWindows} disabled={cambiaAvvio} onChange={(evento) => void avvioConWindows(evento.target.checked)} />
+          Avvia con Windows
+          <span className="tenue"> · il nodo e la sua icona partono a ogni accesso</span>
+        </label>
+      )}
+      {ambiente.attivo && ambiente.avvioConWindows === undefined && eWindows(ambiente.sistema) && (
+        <p className="tenue">Per scegliere da qui se parte con Windows, reinstalla il nodo con il comando di una riga.</p>
+      )}
       {ambiente.attivo && ambiente.indietro === true && ambiente.siAggiorna !== true && (
         <p className="tenue">Questo nodo non si aggiorna da qui: va aggiornato su quella macchina.</p>
       )}
@@ -204,6 +199,24 @@ function VistaAmbiente({ ambiente, allaChiusura }: { ambiente: Ambiente; allaChi
           <div className="pulsanti">
             <button type="button" onClick={() => setDaAggiornare(true)}>
               Aggiorna
+            </button>
+          </div>
+        ))}
+      {!ambiente.delCentro &&
+        (reinstalla ? (
+          <AggiungiAmbiente
+            reinstalla={{
+              sistema: eWindows(ambiente.sistema) ? "windows" : "linux",
+              nome: ambiente.nome,
+              descrizione: ambiente.descrizione,
+              centro: ambiente.indirizzoDelCentro ?? indirizzoNoto ?? indirizzoProposto(window.location),
+            }}
+            allaChiusura={() => setReinstalla(false)}
+          />
+        ) : (
+          <div className="pulsanti">
+            <button type="button" className="discreto piccolo" onClick={() => setReinstalla(true)}>
+              Reinstalla
             </button>
           </div>
         ))}
@@ -240,13 +253,42 @@ export function indirizzoProposto(posizione: { hostname: string; port: string; p
   return `http://${posizione.hostname}:${porta}`;
 }
 
-/** Un ambiente nuovo: il proprietario sceglie sistema e nome, e incolla su quella macchina il comando che riceve. */
-function AggiungiAmbiente(): ReactNode {
-  const [aperto, setAperto] = useState(false);
-  const [sistema, setSistema] = useState<"linux" | "windows">("linux");
-  const [nome, setNome] = useState("");
-  const [descrizione, setDescrizione] = useState("");
-  const [centro, setCentro] = useState(() => indirizzoProposto(window.location));
+/** Vero se il sistema di un ambiente è Windows. */
+function eWindows(sistema: string): boolean {
+  return /windows/i.test(sistema);
+}
+
+/**
+ * L'indirizzo del centro che i nodi usano davvero, come l'hanno detto: dietro un proxy (per esempio
+ * aprendo Shinka da un nome pubblico in HTTPS) quello della pagina non va bene per i nodi.
+ */
+export function indirizzoNoto(stato: StatoAmbienti): string | undefined {
+  return stato.ambienti.find((ambiente) => ambiente.attivo && ambiente.indirizzoDelCentro !== undefined)?.indirizzoDelCentro ??
+    stato.ambienti.find((ambiente) => ambiente.indirizzoDelCentro !== undefined)?.indirizzoDelCentro;
+}
+
+/** Ciò che serve per reinstallare un nodo con gli stessi dati di prima. */
+interface DatiDelNodo {
+  sistema: "linux" | "windows";
+  nome: string;
+  descrizione: string;
+  centro: string;
+}
+
+/**
+ * Un ambiente nuovo: il proprietario sceglie sistema e nome, e incolla su quella macchina il comando
+ * che riceve. Con `reinstalla` i campi sono già quelli del nodo, che si ritrova con la sua identità.
+ */
+function AggiungiAmbiente({ indirizzoNoto: noto, reinstalla, allaChiusura }: { indirizzoNoto?: string | undefined; reinstalla?: DatiDelNodo; allaChiusura?: () => void }): ReactNode {
+  const [aperto, setApertoQui] = useState(reinstalla !== undefined);
+  const setAperto = (si: boolean): void => {
+    setApertoQui(si);
+    if (!si) allaChiusura?.();
+  };
+  const [sistema, setSistema] = useState<"linux" | "windows">(reinstalla?.sistema ?? "linux");
+  const [nome, setNome] = useState(reinstalla?.nome ?? "");
+  const [descrizione, setDescrizione] = useState(reinstalla?.descrizione ?? "");
+  const [centro, setCentro] = useState(() => reinstalla?.centro ?? noto ?? indirizzoProposto(window.location));
   const [invito, setInvito] = useState<InvitoAmbiente>();
   const [lavoro, setLavoro] = useState(false);
   const [errore, setErrore] = useState<string>();
@@ -281,7 +323,7 @@ function AggiungiAmbiente(): ReactNode {
     const scade = new Date(invito.scade).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
     return (
       <div className="aggiungi-ambiente">
-        <h3>Aggiungi un ambiente</h3>
+        <h3>{reinstalla === undefined ? "Aggiungi un ambiente" : `Reinstalla «${reinstalla.nome}»`}</h3>
         <p>
           {invito.sistema === "linux"
             ? "Su quella macchina apri un terminale, con l'utente che farà lavorare i progetti (non root), e incolla:"
@@ -320,7 +362,12 @@ function AggiungiAmbiente(): ReactNode {
 
   return (
     <div className="aggiungi-ambiente">
-      <h3>Aggiungi un ambiente</h3>
+      <h3>{reinstalla === undefined ? "Aggiungi un ambiente" : `Reinstalla «${reinstalla.nome}»`}</h3>
+      {reinstalla !== undefined && (
+        <p className="tenue">
+          Il comando rimette a posto il nodo, la sua icona e il suo avvio, e tiene la sua identità e le sue scelte: l'ambiente resta questo, con i suoi progetti.
+        </p>
+      )}
       <form
         className="modulo-impostazioni"
         onSubmit={(evento) => {

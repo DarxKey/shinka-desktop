@@ -67,6 +67,12 @@ const ETICHETTE: Record<string, string> = {
   mcp__shinka__leggi_stack: "Stato di uno stack",
   mcp__shinka__ferma_stack: "Arresto di uno stack",
   mcp__shinka__rimuovi_stack: "Rimozione di uno stack",
+  mcp__shinka__cartelle_collegate: "Cartelle collegate",
+  mcp__shinka__esegui_nella_collegata: "Comando nella cartella collegata",
+  mcp__shinka__leggi_nella_collegata: "Lettura nella cartella collegata",
+  mcp__shinka__scrivi_nella_collegata: "Scrittura nella cartella collegata",
+  mcp__shinka__modifica_nella_collegata: "Modifica nella cartella collegata",
+  mcp__shinka__affida_incarico: "Incarico a chi implementa",
 };
 
 /** Gli strumenti che agiscono su uno stack di prova: il dettaglio dice quale, e su quale host. */
@@ -117,6 +123,11 @@ const CAMPO_PRINCIPALE: Record<string, string> = {
   mcp__shinka__leggi_credenziale: "credenziale",
   mcp__shinka__programma_lavoro: "titolo",
   mcp__shinka__salva_credenziale_in_chiaro: "nome",
+  mcp__shinka__esegui_nella_collegata: "comando",
+  mcp__shinka__leggi_nella_collegata: "percorso",
+  mcp__shinka__scrivi_nella_collegata: "percorso",
+  mcp__shinka__modifica_nella_collegata: "percorso",
+  mcp__shinka__affida_incarico: "incarico",
 };
 
 /** Gli strumenti che agiscono in un ambiente indicato per nome: il nome apre il dettaglio. */

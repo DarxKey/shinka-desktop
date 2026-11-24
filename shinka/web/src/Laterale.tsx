@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { VoceProgetto } from "../../src/protocollo/progetti.ts";
 import { eliminaProgetto, fissaProgetto, rinominaProgetto } from "./api.ts";
 import { leggiModoGruppi, raggruppaProgetti, scriviModoGruppi, type ModoGruppi } from "./barra.ts";
-import { PulsanteAmbienti } from "./Ambienti.tsx";
 import { MenuAspetto } from "./Aspetto.tsx";
 import { condizioneInParole, filtraArgomenti, giornoInBreve, vaultInBreve } from "./descrivi.ts";
 import type { Quadro } from "./Quadro.tsx";
@@ -159,13 +158,15 @@ export function Laterale(proprieta: ProprietaLaterale): ReactNode {
 
       <MenuAspetto />
       <div className="piede">
-        <PulsanteAmbienti
-          stato={quadro.ambienti}
-          aperto={proprieta.pannelloAmbientiAperto}
-          alClic={proprieta.alClicAmbienti}
-        />
         <div className="piede-destra">
-          <MenuPagine vista={vista} quadro={quadro} skillNuove={proprieta.skillNuove} allaScelta={allaScelta} />
+          <MenuPagine
+            vista={vista}
+            quadro={quadro}
+            skillNuove={proprieta.skillNuove}
+            allaScelta={allaScelta}
+            ambientiAperti={proprieta.pannelloAmbientiAperto}
+            alClicAmbienti={proprieta.alClicAmbienti}
+          />
           <button type="button" className="discreto" onClick={proprieta.allUscita}>
             Esci
           </button>
@@ -206,7 +207,21 @@ function CampoCerca({ allaScelta }: { allaScelta: () => void }): ReactNode {
 }
 
 /** Le pagine che non sono conversazioni, in un menu che si apre dall'icona in fondo alla barra. */
-function MenuPagine({ vista, quadro, skillNuove, allaScelta }: { vista: Vista; quadro: Quadro; skillNuove: number; allaScelta: () => void }): ReactNode {
+function MenuPagine({
+  vista,
+  quadro,
+  skillNuove,
+  allaScelta,
+  ambientiAperti,
+  alClicAmbienti,
+}: {
+  vista: Vista;
+  quadro: Quadro;
+  skillNuove: number;
+  allaScelta: () => void;
+  ambientiAperti: boolean;
+  alClicAmbienti: () => void;
+}): ReactNode {
   const menu = useRef<HTMLDetailsElement>(null);
   const [aperto, setAperto] = useState(false);
   // Si richiude con un tocco fuori o con Esc, come gli altri menu.
@@ -254,13 +269,18 @@ function MenuPagine({ vista, quadro, skillNuove, allaScelta }: { vista: Vista; q
     { vista: { tipo: "impostazioni" }, nome: "Impostazioni" },
   ];
   const suUnaPagina = pagine.some((pagina) => pagina.vista.tipo === vista.tipo);
+  const attivi = quadro.ambienti?.ambienti.filter((ambiente) => ambiente.attivo).length ?? 0;
+  const totale = quadro.ambienti?.ambienti.length ?? 0;
+  // Un nodo che chiede di collegarsi aspetta il proprietario: l'icona lo segnala.
+  const richieste = quadro.ambienti?.richieste.length ?? 0;
+  const segnale = skillNuove > 0 || richieste > 0;
 
   return (
     <details ref={menu} className="menu-pagine" onToggle={(evento) => setAperto(evento.currentTarget.open)}>
       <summary
         className={suUnaPagina ? "attuale" : undefined}
-        aria-label={skillNuove > 0 ? "Pagine: ci sono skill nuove" : "Pagine"}
-        title="Programmati, uso, memoria, skill, vault, impostazioni…"
+        aria-label={richieste > 0 ? "Pagine: un ambiente chiede di collegarsi" : skillNuove > 0 ? "Pagine: ci sono skill nuove" : "Pagine"}
+        title="Ambienti, programmati, uso, memoria, skill, vault, impostazioni…"
       >
         <svg viewBox="0 0 20 20" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6">
           <rect x="3" y="3" width="5.5" height="5.5" rx="1.4" />
@@ -268,9 +288,31 @@ function MenuPagine({ vista, quadro, skillNuove, allaScelta }: { vista: Vista; q
           <rect x="3" y="11.5" width="5.5" height="5.5" rx="1.4" />
           <rect x="11.5" y="11.5" width="5.5" height="5.5" rx="1.4" />
         </svg>
-        {skillNuove > 0 && <span className="pallino" aria-hidden="true" />}
+        {segnale && <span className="pallino" aria-hidden="true" />}
       </summary>
       <div className="voci-pagine">
+        <button
+          type="button"
+          className={ambientiAperti ? "voce attuale" : "voce"}
+          aria-expanded={ambientiAperti}
+          onClick={() => {
+            menu.current?.removeAttribute("open");
+            alClicAmbienti();
+          }}
+        >
+          <span className="nome">Ambienti</span>
+          {richieste > 0 ? (
+            <span className="novita" aria-label={`${richieste} richieste di collegamento in attesa`}>
+              {richieste === 1 ? "1 richiesta" : `${richieste} richieste`}
+            </span>
+          ) : (
+            quadro.ambienti !== undefined && (
+              <span className="quanti" aria-label={`${attivi} attivi su ${totale}`}>
+                {attivi}/{totale}
+              </span>
+            )
+          )}
+        </button>
         {pagine.map((pagina) => {
           const attuale = pagina.vista.tipo === vista.tipo;
           return (
