@@ -7,7 +7,7 @@ import type { AzioneInAmbiente, EsitoAzione } from "./azioni.ts";
 import type { RichiestaAllaConversazione } from "./modifiche.ts";
 import type { AnteprimaRiavvolgimento, DecisionePermesso, EventoConversazione, RispostaAParte, RispostaAlleDomande } from "./eventi.ts";
 import type { Allegato, Immagine } from "./allegati.ts";
-import type { ImpostazioniConversazione, Motore } from "./impostazioni.ts";
+import type { Impegno, ImpostazioniConversazione, Motore } from "./impostazioni.ts";
 import type { EsitoAccessi, RichiestaAccessi } from "./accessi.ts";
 import type { RisorseDellAmbiente } from "./risorse.ts";
 import type { SkillDistribuita } from "./skill.ts";
@@ -83,8 +83,12 @@ export type RiferitoDalNodo =
   | { tipo: "accessi-esito"; idRichiesta: string; esito: EsitoAccessi }
   /** Le risorse di questo ambiente, lette adesso: per la sua pagina. */
   | { tipo: "risorse-esito"; idRichiesta: string; risorse: RisorseDellAmbiente }
+  /** Com'è andata la richiesta di terminare un processo di Shinka. */
+  | { tipo: "processo-terminato"; idRichiesta: string; riuscita: boolean; testo: string }
   /** Com'è andata la scelta di far partire il nodo a ogni accesso a Windows. */
   | { tipo: "avvio-con-windows-esito"; idRichiesta: string; attivo?: boolean; motivo?: string }
+  /** Il modello locale in rete chiesto dal centro risponde sulla sua porta, oppure perché no. */
+  | { tipo: "modello-preso"; idPresa: string; porta?: number; motivo?: string }
   /** Ciò che esce dal terminale di un progetto di questo ambiente. */
   | RiferitoTerminale
   /** Ciò che risponde l'applicazione di un progetto di questo ambiente, per l'anteprima. */
@@ -129,8 +133,17 @@ export type MessaggioNodo =
 
 /** Ciò che il centro chiede a un nodo di fare nel suo ambiente. */
 export type ComandoPerNodo =
+  /** Termina un processo acceso da Shinka in questo ambiente, con ciò che ha avviato. Il nodo rifiuta gli altri. */
+  | { tipo: "termina-processo"; idRichiesta: string; pid: number }
   /** Su Windows: fa partire il nodo, con la sua icona, a ogni accesso, oppure smette. */
   | { tipo: "avvio-con-windows"; idRichiesta: string; attivo: boolean }
+  /**
+   * Una conversazione di un altro ambiente usa un modello locale in rete di questo: il nodo accende
+   * il server, se serve, e lo tiene acceso finché il centro non lo lascia (ADR 0053).
+   */
+  | { tipo: "prendi-modello"; idPresa: string; modello: string; impegno?: Impegno }
+  /** La conversazione dell'altro ambiente ha finito con il modello: il server si spegne dopo il solito tempo. */
+  | { tipo: "lascia-modello"; idPresa: string }
   /**
    * Crea la cartella di un progetto nuovo. Fallisce se esiste già. Con `daArgomento` ci copia
    * i file che quell'argomento della Home ha in questo ambiente.
@@ -186,6 +199,8 @@ export type ComandoPerNodo =
       idConversazione: string;
       idPermesso: string;
       decisione: DecisionePermesso;
+      /** Il consenso vale anche per le prossime volte (Approva sempre). */
+      sempre?: true;
     }
   /**
    * Riprende una conversazione da prima di un messaggio del proprietario: con `prova` dice soltanto
@@ -251,6 +266,8 @@ export interface Ambiente {
   aggiornamento?: AggiornamentoDelNodo;
   /** L'indirizzo con cui il nodo raggiunge il centro, come l'ha detto l'ultima volta. */
   indirizzoDelCentro?: string;
+  /** L'indirizzo da cui il nodo si è collegato, visto dal centro: dove il centro raggiunge un suo modello in rete. */
+  indirizzoDelNodo?: string;
   /** Su Windows, per un nodo collegato che lo sa dire: se parte a ogni accesso. */
   avvioConWindows?: boolean;
 }

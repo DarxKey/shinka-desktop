@@ -164,7 +164,13 @@ function VistaProgrammato({ lavoro, progetti, alCambio }: { lavoro: LavoroProgra
     <li className={lavoro.attivo ? "scheda-programmato" : "scheda-programmato in-pausa"}>
       <div className="riga-programmato">
         <span className="nome">{lavoro.titolo}</span>
-        {lavoro.inCorso === true ? <span className="stato-programmato al-lavoro">al lavoro</span> : !lavoro.attivo && <span className="stato-programmato">in pausa</span>}
+        {lavoro.inCorso === true ? (
+          <span className="stato-programmato al-lavoro">al lavoro</span>
+        ) : lavoro.riprendeIl !== undefined ? (
+          <span className="stato-programmato aspetta-il-limite">aspetta il limite</span>
+        ) : (
+          !lavoro.attivo && <span className="stato-programmato">in pausa</span>
+        )}
       </div>
       <div className="tenue">
         {pianificazioneInParole(lavoro.quando)} · {doveInParole(lavoro)} · {lavoro.avvisa === "sempre" ? "ti avvisa ogni volta" : "ti avvisa solo se serve"}
@@ -214,7 +220,8 @@ function VistaProgrammato({ lavoro, progetti, alCambio }: { lavoro: LavoroProgra
         </div>
       )}
       <div className="tenue">
-        {lavoro.prossima !== undefined && <>Prossima volta: {momentoInBreve(lavoro.prossima)}. </>}
+        {lavoro.riprendeIl !== undefined && <>Il limite del piano è esaurito: riparte da solo {momentoInBreve(lavoro.riprendeIl)}, quando si azzera. </>}
+        {lavoro.prossima !== undefined && lavoro.riprendeIl === undefined && <>Prossima volta: {momentoInBreve(lavoro.prossima)}. </>}
         {lavoro.ultima !== undefined && (
           <>
             L'ultima, {momentoInBreve(lavoro.ultima.quando)}: {ESITI[lavoro.ultima.esito]}

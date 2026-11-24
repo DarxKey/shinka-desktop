@@ -41,6 +41,39 @@ export function SchedaCoseDaFare({ scheda }: { scheda: Extract<Elemento, { tipo:
   );
 }
 
+/**
+ * Le cose da fare mentre Claude lavora, sopra il campo di scrittura: a che punto è e che cosa sta
+ * facendo, sempre in vista anche quando la scheda nella chat è scivolata in alto. Si apre per
+ * vedere tutta la lista.
+ */
+export function CoseDaFareInVista({ scheda }: { scheda: Extract<Elemento, { tipo: "cose-da-fare" }> }): ReactNode {
+  const fatte = scheda.voci.filter((voce) => voce.stato === "fatta").length;
+  const inCorso = scheda.voci.find((voce) => voce.stato === "in-corso");
+  return (
+    <details className="cose-in-vista">
+      <summary>
+        <span className="conto-cose">
+          {fatte} di {scheda.voci.length}
+        </span>
+        <span className="barra-cose" aria-hidden="true">
+          <span style={{ width: `${scheda.voci.length === 0 ? 0 : (fatte / scheda.voci.length) * 100}%` }} />
+        </span>
+        <span className="ora-cose">{inCorso?.inCorso ?? inCorso?.testo ?? "Cose da fare"}</span>
+      </summary>
+      <ol>
+        {scheda.voci.map((voce, indice) => (
+          <li key={indice} className={voce.stato}>
+            <span className="segno" aria-hidden="true">
+              {SEGNO[voce.stato]}
+            </span>
+            <span>{voce.testo}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
 /** Il piano che Claude presenta (ExitPlanMode), da leggere come un documento. */
 export function TestoDelPiano({ ingresso }: { ingresso: unknown }): ReactNode {
   const piano = (ingresso as { plan?: unknown } | null)?.plan;

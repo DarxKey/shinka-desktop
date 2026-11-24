@@ -44,9 +44,12 @@ export function eIncarico(idConversazione: string): boolean {
   return idConversazione.includes(SEGNO_INCARICO);
 }
 
-/** Il progetto a cui appartiene una conversazione: il progetto stesso, o quello del suo incarico. */
+/**
+ * Il progetto a cui appartiene una conversazione: il progetto stesso, o quello del suo incarico o
+ * della sua chat parallela (ADR 0052), che ne portano l'identificativo prima di una tilde.
+ */
 export function progettoDellaConversazione(idConversazione: string): string {
-  const dove = idConversazione.indexOf(SEGNO_INCARICO);
+  const dove = idConversazione.indexOf("~");
   return dove < 0 ? idConversazione : idConversazione.slice(0, dove);
 }
 

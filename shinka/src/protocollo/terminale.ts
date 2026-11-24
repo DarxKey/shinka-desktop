@@ -2,9 +2,23 @@
  * Il terminale di un progetto: ciò che il centro chiede a chi sta nell'ambiente, ciò che ne
  * torna, e ciò che il centro e il browser si dicono. Sono dati semplici, serializzabili in JSON.
  *
- * Un progetto ha un terminale solo, che vive nel suo ambiente e si riconosce dall'identificativo
- * del progetto. Resta acceso anche quando nessuno lo guarda.
+ * Un progetto ha fino a `SCHEDE_MASSIME` terminali, uno per scheda, che vivono nel suo ambiente: il
+ * primo si riconosce dall'identificativo del progetto, gli altri da quello seguito da `~t` e dal
+ * numero della scheda. Restano accesi anche quando nessuno li guarda.
  */
+
+/** Quanti terminali può avere un progetto, uno per scheda. */
+export const SCHEDE_MASSIME = 4;
+
+/** L'identificativo del terminale di una scheda di un progetto: la prima è il progetto stesso. */
+export function terminaleDellaScheda(idProgetto: string, scheda: number): string {
+  return scheda <= 1 ? idProgetto : `${idProgetto}~t${scheda}`;
+}
+
+/** Il progetto di un terminale. */
+export function progettoDelTerminale(idTerminale: string): string {
+  return idTerminale.replace(/~t\d+$/, "");
+}
 
 /** Le misure che un terminale può avere. */
 export const COLONNE_MASSIME = 500;

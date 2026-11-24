@@ -3,15 +3,22 @@ import { altraParola, CAMBIO_PAROLA_MS, silenzioInParole } from "./parole-buffe.
 
 /**
  * Il germoglio del logo di Shinka, che mentre Claude lavora oscilla dalla base e apre le foglie a
- * turno. Gli stessi tratti dell'icona, senza il fondo; con le animazioni ridotte resta fermo.
+ * turno. Gli stessi tratti dell'icona, a facce, senza il fondo: la faccia in ombra è più tenue. Con
+ * le animazioni ridotte resta fermo.
  */
 function Germoglio() {
   return (
-    <svg className="germoglio" viewBox="131 90 300 340" width="18" height="20" aria-hidden="true" focusable="false">
+    <svg className="germoglio" viewBox="120 90 280 340" width="18" height="20" aria-hidden="true" focusable="false">
       <g className="pianta">
-        <path d="M256 412 C252 352 250 306 256 262" fill="none" stroke="currentColor" strokeWidth="34" strokeLinecap="round" />
-        <path className="foglia piccola" d="M254 318 C204 322 160 296 148 240 C204 232 246 262 254 318 Z" fill="currentColor" />
-        <path className="foglia grande" d="M241 270 C246 176 312 114 396 104 C402 198 336 264 241 270 Z" fill="currentColor" />
+        <path d="M248 414 L242 338 L248 262" fill="none" stroke="currentColor" strokeWidth="34" strokeLinecap="square" />
+        <g className="foglia piccola">
+          <path d="M246 318 L190 312 L132 240 Z" fill="currentColor" />
+          <path d="M246 318 L132 240 L200 246 Z" fill="currentColor" opacity="0.55" />
+        </g>
+        <g className="foglia grande">
+          <path d="M232 270 L250 196 L302 138 L380 102 Z" fill="currentColor" />
+          <path d="M232 270 L380 102 L366 176 L320 232 Z" fill="currentColor" opacity="0.55" />
+        </g>
       </g>
     </svg>
   );

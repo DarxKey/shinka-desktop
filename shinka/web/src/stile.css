@@ -358,9 +358,94 @@ pre {
   height: 100%;
 }
 
-/* Con lo stato del progetto c'è una riga in più, tra la testata e la conversazione. */
-.app.con-stato {
-  grid-template-rows: auto auto 1fr auto;
+/*
+ * La chat è una colonna: la conversazione prende lo spazio che resta, qualunque cosa ci sia sopra
+ * (testata, schede delle chat parallele, stato del progetto) e sotto (cose da fare, pulsanti delle
+ * estensioni, campo di scrittura). Così il campo resta in fondo anche a chat vuota.
+ */
+.app.chat {
+  display: flex;
+  flex-direction: column;
+}
+
+.app.chat > * {
+  flex: none;
+}
+
+.app.chat > .conversazione {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.schede-chat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 4px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--bordo);
+  background: var(--superficie);
+}
+
+.scheda-chat {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  border-radius: 8px;
+}
+
+.scheda-chat[aria-current="true"] {
+  background: var(--codice);
+}
+
+.scheda-chat > button {
+  min-height: 32px;
+  border-color: transparent;
+  background: transparent;
+  font-size: 0.875rem;
+}
+
+.scheda-chat > button.nome-scheda {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--tenue);
+}
+
+.scheda-chat[aria-current="true"] > button.nome-scheda {
+  color: var(--testo);
+  font-weight: 600;
+}
+
+.scheda-chat > button.chiudi-scheda {
+  padding: 0 8px;
+  color: var(--tenue);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.scheda-chat .pallino-scheda {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.pallino-scheda.al-lavoro {
+  background: var(--accento);
+}
+
+.pallino-scheda.aspetta-te {
+  background: var(--attesa);
+}
+
+.conferma-chiusura-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 0.8125rem;
 }
 
 .colonna {
@@ -1807,6 +1892,10 @@ li.con-immagine {
 
 .stato-programmato.al-lavoro {
   color: var(--bene);
+}
+
+.stato-programmato.aspetta-il-limite {
+  color: var(--attesa);
 }
 
 .richiesta-programmato {
@@ -4629,59 +4718,6 @@ button.torna-giu.aspetta {
   }
 }
 
-/* La domanda a parte: sopra il campo, con la sua risposta; nella conversazione non resta. */
-.a-parte {
-  display: grid;
-  gap: var(--s-1);
-  margin-bottom: var(--s-2);
-  padding: var(--s-2) var(--s-3);
-  border: 1px dashed var(--accento);
-  border-radius: 12px;
-  background: var(--superficie);
-  font-size: var(--t-ui);
-  max-height: 45vh;
-  overflow-y: auto;
-}
-
-.a-parte header {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-}
-
-.a-parte .titolo-a-parte {
-  font-weight: 600;
-  color: var(--accento);
-}
-
-.a-parte .chiudi-a-parte {
-  margin-left: auto;
-  padding: 0 var(--s-1);
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.a-parte p {
-  margin: 0;
-}
-
-.domanda-a-parte {
-  font-style: italic;
-  white-space: pre-wrap;
-}
-
-.risposta-a-parte {
-  font-size: var(--t-testo);
-}
-
-.risposta-a-parte > :first-child {
-  margin-top: 0;
-}
-
-.risposta-a-parte > :last-child {
-  margin-bottom: 0;
-}
-
 /* Gli stili di risposta: uno nuovo da una descrizione, e quelli del proprietario. */
 .gestione-stili {
   display: grid;
@@ -4739,7 +4775,6 @@ button.torna-giu.aspetta {
 }
 
 @media print {
-  .a-parte,
   .gestione-stili {
     display: none;
   }
@@ -6578,4 +6613,384 @@ kbd {
   gap: 6px;
   margin-top: 6px;
   font-size: 0.875rem;
+}
+
+/* Le fonti in fondo a una risposta, chiuse sotto un pulsante. */
+.fonti-risposta {
+  margin-top: var(--s-2);
+}
+
+.fonti-risposta > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border: 1px solid var(--bordo);
+  border-radius: 999px;
+  color: var(--tenue);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.fonti-risposta > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fonti-risposta > summary::before {
+  content: "↗";
+}
+
+.fonti-risposta[open] > summary {
+  color: inherit;
+}
+
+.fonti-risposta ul {
+  margin: var(--s-2) 0 0;
+  font-size: 0.875rem;
+}
+
+/* Il comando di un'attività in background, com'è stato scritto. */
+.comando-attivita {
+  margin: 4px 0 0;
+  padding: 4px var(--s-2);
+  border-radius: 6px;
+  background: var(--codice);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Le cose da fare in vista sopra il campo di scrittura, mentre Claude lavora. */
+.colonna-cose {
+  padding: 0 16px;
+  border-top: 1px solid var(--bordo);
+  background: var(--superficie);
+}
+
+.cose-in-vista {
+  width: 100%;
+  max-width: var(--lettura);
+  margin: 0 auto;
+  font-size: var(--t-ui);
+}
+
+.cose-in-vista > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 6px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cose-in-vista > summary::-webkit-details-marker {
+  display: none;
+}
+
+.barra-cose {
+  flex: none;
+  width: 56px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--bordo);
+}
+
+.barra-cose > span {
+  display: block;
+  height: 100%;
+  background: var(--accento);
+  transition: width var(--durata) ease;
+}
+
+.ora-cose {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cose-in-vista ol {
+  display: grid;
+  gap: 4px;
+  max-height: 30vh;
+  overflow-y: auto;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.cose-in-vista li {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.cose-in-vista .segno {
+  flex: none;
+  width: 1em;
+  text-align: center;
+  color: var(--tenue);
+}
+
+.cose-in-vista li.fatta {
+  color: var(--tenue);
+  text-decoration: line-through;
+}
+
+.cose-in-vista li.fatta .segno {
+  color: var(--bene);
+}
+
+.cose-in-vista li.in-corso {
+  font-weight: 500;
+}
+
+/* Nella conferma dell'eliminazione: anche la cartella con i file. */
+.con-la-cartella {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 var(--s-2);
+  font-size: 0.875rem;
+}
+
+.con-la-cartella input {
+  margin-top: 3px;
+}
+
+.con-la-cartella code {
+  overflow-wrap: anywhere;
+}
+
+/* Accesso a tutto il computer, nella scheda della sessione di un progetto. */
+.tutto-il-pc {
+  display: grid;
+  gap: 4px;
+  margin-top: var(--s-3);
+}
+
+.tutto-il-pc label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.tutto-il-pc p {
+  margin: 0;
+  font-size: var(--t-piccolo);
+}
+
+/* Che cosa salva «Approva sempre», sotto i pulsanti del permesso. */
+.regola-permesso {
+  margin: 6px 0 0;
+  font-size: var(--t-piccolo);
+  overflow-wrap: anywhere;
+}
+
+/* Le estensioni di un progetto, nella scheda della sessione. */
+.estensioni-del-progetto {
+  display: grid;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+.estensioni-del-progetto h4 {
+  margin: 0;
+  font-size: var(--t-piccolo);
+  font-weight: 600;
+  color: var(--tenue);
+}
+
+.estensioni-del-progetto ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.estensioni-del-progetto label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.estensioni-del-progetto p {
+  margin: 0;
+  font-size: var(--t-piccolo);
+}
+
+/* I processi di Shinka in un ambiente, per progetto. */
+.gruppo-processi {
+  margin-bottom: var(--s-3);
+}
+
+.gruppo-processi h3 {
+  margin: 0 0 var(--s-1);
+  font-size: var(--t-ui);
+}
+
+.gruppo-processi ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.riga-processo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4.5em 5.5em auto;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.riga-processo .nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.riga-processo .numero {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.gruppo-processi .comando-processo {
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.processi-del-progetto {
+  margin: var(--s-3) 0 0;
+  font-size: var(--t-piccolo);
+}
+
+/* Più terminali per progetto, in schede sopra il terminale. */
+.terminali-del-progetto {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  background: #151517;
+}
+
+.schede-terminali {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 4px 6px 0;
+  background: #0e0e10;
+}
+
+.scheda-terminale {
+  flex: none;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: #a9a8a4;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.scheda-terminale.attiva {
+  background: #151517;
+  color: #ecebe8;
+}
+
+.scheda-terminale.nuova {
+  font-weight: 600;
+}
+
+/* Un modello locale in rete (ADR 0053): la scelta, l'indirizzo e la regola del firewall. */
+.modello-in-rete {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  margin-top: 8px;
+  font-size: 0.875rem;
+}
+
+.modello-in-rete p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.scelta-in-rete {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indirizzo-in-rete {
+  display: grid;
+  gap: 2px;
+}
+
+.indirizzo-in-rete input {
+  max-width: 260px;
+}
+
+.comando-firewall {
+  display: block;
+  margin-top: 4px;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: 6px;
+  background: var(--codice);
+}
+
+/* Le estensioni dell'interfaccia (ADR 0054): il riquadro di una pagina e i pulsanti sopra il campo. */
+.riquadro-estensione {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--superficie);
+}
+
+.app.pagina-estensione {
+  grid-template-rows: auto 1fr;
+}
+
+.pulsanti-estensioni {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: var(--lettura);
+  margin: 0 auto;
+  padding: 0 16px 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* La risposta massima di un modello locale, che decide la riserva per la compattazione. */
+.risposta-massima {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 0.875rem;
+}
+
+.risposta-massima label {
+  display: grid;
+  gap: 2px;
+}
+
+.risposta-massima input {
+  width: 10ch;
+}
+
+.risposta-massima p {
+  flex-basis: 100%;
+  margin: 0;
 }

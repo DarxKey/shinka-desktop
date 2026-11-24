@@ -3,6 +3,8 @@
  * Sono dati semplici, serializzabili in JSON: nessuna funzione, nessun riferimento all'SDK.
  */
 
+import type { PaginaDiEstensione, PulsanteDiEstensione } from "./interfaccia.ts";
+import type { LimiteRaggiunto } from "./limiti.ts";
 import type { Allegato, Immagine } from "./allegati.ts";
 import type { EstensioniDegliAmbienti, SkillDiPartenza } from "./avvio-progetto.ts";
 import type { ContenutoPlugin, DefinizioneEstensione } from "./estensioni.ts";
@@ -151,8 +153,13 @@ export type EventoConversazione =
       strumento: string;
       ingresso: unknown;
       motivo?: string;
+      /**
+       * Ciò che «Approva sempre» salverebbe nelle impostazioni locali del progetto, in parole: una
+       * regola (per esempio «Bash(npm test:*)») o una cartella. Manca se l'harness non ne propone.
+       */
+      regola?: string;
     }
-  | { tipo: "permesso-deciso"; idPermesso: string; decisione: DecisionePermesso }
+  | { tipo: "permesso-deciso"; idPermesso: string; decisione: DecisionePermesso; sempre?: true }
   /** Claude chiede al proprietario di rispondere ad alcune domande prima di andare avanti. */
   | { tipo: "domande-poste"; idDomande: string; domande: Domanda[] }
   /** Le domande non aspettano più: `risposte`, una per domanda, c'è se il proprietario ha risposto dalla scheda. */
@@ -192,6 +199,8 @@ export type EventoConversazione =
       interrotto?: boolean;
       /** I token del turno, come li conta l'harness: per la pagina Uso. Mancano nei turni di prima. */
       token?: TokenDelTurno;
+      /** Presente se il turno si è fermato perché il limite del piano è esaurito, con quando si azzera se si sa. */
+      limite?: LimiteRaggiunto;
     }
   /** Qualcosa è andato storto fuori dal normale corso del turno. */
   | { tipo: "errore"; messaggio: string }
@@ -330,6 +339,24 @@ export type EventoConversazione =
       /** Perché non è partita. */
       motivo?: string;
     }
+  /**
+   * La Home propone un'estensione dell'interfaccia (ADR 0054): un tema, delle pagine, dei pulsanti.
+   * Le pagine si guardano in anteprima dalla scheda; nulla entra finché il proprietario non conferma.
+   */
+  | {
+      tipo: "interfaccia-proposta";
+      idProposta: string;
+      nome: string;
+      descrizione: string;
+      /** Vero se ne sostituisce una con lo stesso nome. */
+      sostituisce?: true;
+      /** Quante righe ha il tema, se ce n'è uno. */
+      righeTema?: number;
+      pagine: PaginaDiEstensione[];
+      pulsanti: PulsanteDiEstensione[];
+    }
+  /** Com'è finita la proposta di un'estensione dell'interfaccia. */
+  | { tipo: "interfaccia-decisa"; idProposta: string; esito: "confermata" | "annullata" }
   /** Il progetto ha riscritto il proprio stato: a che punto è, cosa è deciso, cosa aspetta. */
   | { tipo: "stato-progetto"; testo: string }
   /** Nel dubbio la Home chiede al proprietario se fare il lavoro lì o aprire un progetto. */
@@ -453,8 +480,11 @@ export interface PortaConversazione {
    * passare la conversazione a un altro motore. Chi non lo sa fare non ce l'ha.
    */
   storia?(): Promise<ScambioDellaStoria[]>;
-  /** Restituisce false se quel permesso non è più in attesa. */
-  decidiPermesso(idPermesso: string, decisione: DecisionePermesso): boolean;
+  /**
+   * Restituisce false se quel permesso non è più in attesa. Con `sempre` un consenso vale anche per
+   * le prossime volte: la regola che l'harness propone si salva nelle impostazioni locali del progetto.
+   */
+  decidiPermesso(idPermesso: string, decisione: DecisionePermesso, sempre?: boolean): boolean;
   /**
    * Risponde alle domande che Claude ha posto. Restituisce false se non aspettano più.
    * Un messaggio mandato con `invia` mentre aspettano vale anch'esso come risposta.

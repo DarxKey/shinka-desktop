@@ -2,7 +2,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import "@xterm/xterm/css/xterm.css";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { DalBrowserAlTerminale, DalTerminaleAlBrowser } from "../../src/protocollo/terminale.ts";
+import { SCHEDE_MASSIME, type DalBrowserAlTerminale, type DalTerminaleAlBrowser } from "../../src/protocollo/terminale.ts";
 import { indirizzoDelTerminale } from "./api.ts";
 import { conCtrl } from "./descrivi.ts";
 
@@ -39,7 +39,7 @@ const TENTATIVI_DA_SOLI = 4;
  * Il terminale del progetto: una shell nella sua cartella, nel suo ambiente. Resta accesa quando
  * questa pagina si chiude: riaprendola si ritrova ciò che è uscito nel frattempo.
  */
-export function Terminale({ idProgetto, nomeAmbiente }: { idProgetto: string; nomeAmbiente: string }): ReactNode {
+export function Terminale({ idProgetto, nomeAmbiente, scheda = 1, allaChiusura }: { idProgetto: string; nomeAmbiente: string; scheda?: number; allaChiusura?: () => void }): ReactNode {
   const schermo = useRef<HTMLDivElement>(null);
   const [fase, setFase] = useState<Fase>({ fase: "collegamento" });
   /** Ogni cambio riapre il collegamento da capo. */
@@ -71,7 +71,7 @@ export function Terminale({ idProgetto, nomeAmbiente }: { idProgetto: string; no
     terminale.loadAddon(adatta);
     terminale.open(contenitore);
 
-    const socket = new WebSocket(indirizzoDelTerminale(idProgetto));
+    const socket = new WebSocket(indirizzoDelTerminale(idProgetto, scheda));
     let aperto = false;
     let dettoChiuso = false;
     let smontato = false;
@@ -158,7 +158,7 @@ export function Terminale({ idProgetto, nomeAmbiente }: { idProgetto: string; no
       spegni.current = () => {};
       metti.current = () => {};
     };
-  }, [idProgetto, giro]);
+  }, [idProgetto, scheda, giro]);
 
   // La conferma di spegnimento si ritira da sola.
   useEffect(() => {
@@ -201,6 +201,7 @@ export function Terminale({ idProgetto, nomeAmbiente }: { idProgetto: string; no
               }
               setDaSpegnere(false);
               spegni.current();
+              allaChiusura?.();
             }}
           >
             {daSpegnere ? "Sì, spegni" : "Spegni"}
@@ -258,5 +259,66 @@ function Tasto({
     >
       {etichetta}
     </button>
+  );
+}
+
+/** Dove questo browser ricorda quali schede di terminale ha aperto un progetto. */
+const CHIAVE_SCHEDE = "shinka.terminali.";
+
+function leggiSchede(idProgetto: string): number[] {
+  try {
+    const lette = JSON.parse(window.localStorage.getItem(`${CHIAVE_SCHEDE}${idProgetto}`) ?? "[1]") as unknown;
+    const valide = Array.isArray(lette) ? lette.filter((uno): uno is number => Number.isInteger(uno) && uno >= 1 && uno <= SCHEDE_MASSIME) : [];
+    return valide.length === 0 ? [1] : [...new Set(valide)].sort((a, b) => a - b);
+  } catch {
+    return [1];
+  }
+}
+
+/**
+ * Più terminali per un progetto, uno per scheda, ciascuno con la sua shell nella cartella del
+ * progetto. Le schede aperte restano ricordate in questo browser; le shell restano accese nel loro
+ * ambiente finché non si spengono.
+ */
+export function TerminaliDelProgetto({ idProgetto, nomeAmbiente }: { idProgetto: string; nomeAmbiente: string }): ReactNode {
+  const [schede, setSchedeQui] = useState<number[]>(() => leggiSchede(idProgetto));
+  const [attiva, setAttiva] = useState<number>(() => leggiSchede(idProgetto)[0] ?? 1);
+  const setSchede = (nuove: number[]): void => {
+    const ordinate = nuove.length === 0 ? [1] : nuove;
+    setSchedeQui(ordinate);
+    try {
+      window.localStorage.setItem(`${CHIAVE_SCHEDE}${idProgetto}`, JSON.stringify(ordinate));
+    } catch {
+      // Senza memoria del browser le schede valgono finché la pagina è aperta.
+    }
+  };
+  const nuova = (): void => {
+    const libera = Array.from({ length: SCHEDE_MASSIME }, (_, indice) => indice + 1).find((numero) => !schede.includes(numero));
+    if (libera === undefined) return;
+    setSchede([...schede, libera].sort((a, b) => a - b));
+    setAttiva(libera);
+  };
+  const chiusa = (numero: number): void => {
+    const rimaste = schede.filter((uno) => uno !== numero);
+    setSchede(rimaste);
+    if (attiva === numero) setAttiva(rimaste[0] ?? 1);
+  };
+  return (
+    <div className="terminali-del-progetto">
+      <div className="schede-terminali" role="tablist" aria-label="Terminali del progetto">
+        {schede.map((numero) => (
+          <button key={numero} type="button" role="tab" aria-selected={attiva === numero} className={attiva === numero ? "scheda-terminale attiva" : "scheda-terminale"} onClick={() => setAttiva(numero)}>
+            Terminale {numero}
+          </button>
+        ))}
+        {schede.length < SCHEDE_MASSIME && (
+          <button type="button" className="scheda-terminale nuova" aria-label="Nuovo terminale" title="Nuovo terminale" onClick={nuova}>
+            +
+          </button>
+        )}
+      </div>
+      {/* Uno alla volta: tornando a una scheda la sua shell ridà ciò che è uscito nel frattempo. */}
+      <Terminale key={attiva} idProgetto={idProgetto} nomeAmbiente={nomeAmbiente} scheda={attiva} {...(schede.length > 1 ? { allaChiusura: () => chiusa(attiva) } : {})} />
+    </div>
   );
 }

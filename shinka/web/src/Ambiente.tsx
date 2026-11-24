@@ -5,9 +5,11 @@
  */
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { CampioneRisorse, ContenitoreDocker, DettaglioDellAmbiente, DockerLetto, ProcessoAttivo } from "../../src/protocollo/risorse.ts";
+import type { CampioneRisorse, ContenitoreDocker, DettaglioDellAmbiente, DockerLetto, ProcessoAttivo, ProcessoDiShinka } from "../../src/protocollo/risorse.ts";
 import type { Ambiente } from "../../src/protocollo/nodi.ts";
-import { leggiRisorseAmbiente } from "./api.ts";
+import { leggiRisorseAmbiente, terminaProcesso } from "./api.ts";
+import { cheCosE, processiPerProgetto } from "./processi.ts";
+import { useQuadroCorrente } from "./Quadro.tsx";
 import { grandezzaInBreve as pesoInBreve, sottotitoloAmbiente, versioneAmbiente } from "./descrivi.ts";
 import { frammentoDi } from "./vista.ts";
 
@@ -98,6 +100,7 @@ export function PaginaAmbiente({ menu, ambiente, caricato }: { menu: ReactNode; 
               )}
               {risorse === undefined && motivo === undefined && <p className="tenue">Leggo le risorse…</p>}
               {risorse !== undefined && <Risorse risorse={risorse} storia={storia} versione={versione} />}
+              {risorse?.processiDiShinka !== undefined && id !== undefined && <ProcessiDiShinka idAmbiente={id} processi={risorse.processiDiShinka} />}
             </>
           )}
           <p className="tenue">
@@ -349,6 +352,77 @@ function Processi({ processi, quanti }: { processi: ProcessoAttivo[]; quanti: nu
         {processi.length < quanti ? `I ${processi.length} che pesano di più, su ${quanti}.` : `${quanti} ${quanti === 1 ? "processo" : "processi"}.`} Il processore è in percentuale di un nucleo.
       </p>
     </>
+  );
+}
+
+/**
+ * I processi accesi da Shinka in questo ambiente, per progetto: le conversazioni con i loro comandi e
+ * i loro server (CodeGraph, i modelli locali), i terminali, le applicazioni. Uno bloccato si termina,
+ * con ciò che ha avviato.
+ */
+function ProcessiDiShinka({ idAmbiente, processi }: { idAmbiente: string; processi: ProcessoDiShinka[] }): ReactNode {
+  const quadro = useQuadroCorrente();
+  const progetti = (quadro.progetti?.progetti ?? []).filter((progetto) => progetto.idAmbiente === idAmbiente);
+  const gruppi = processiPerProgetto(processi, progetti);
+  const [daTerminare, setDaTerminare] = useState<number>();
+  const [esito, setEsito] = useState<{ pid: number; errore?: string }>();
+  const termina = (pid: number): void => {
+    setDaTerminare(undefined);
+    setEsito({ pid });
+    terminaProcesso(idAmbiente, pid)
+      .then(() => setEsito(undefined))
+      .catch((causa: unknown) => setEsito({ pid, errore: causa instanceof Error ? causa.message : "Non si è terminato." }));
+  };
+  return (
+    <section className="processi-di-shinka">
+      <h2 className="titolo-sezione">Processi di Shinka</h2>
+      {gruppi.length === 0 && <p className="tenue">In questo momento Shinka non ha processi accesi qui, oltre a sé stessa.</p>}
+      {gruppi.map((gruppo) => (
+        <div key={gruppo.progetto?.id ?? "shinka"} className="gruppo-processi">
+          <h3>
+            {gruppo.progetto === undefined ? "Shinka" : <a href={frammentoDi({ tipo: "progetto", id: gruppo.progetto.id })}>{gruppo.progetto.nome}</a>}
+            <span className="tenue">
+              {" "}
+              · {percento(gruppo.cpu)} · {pesoInBreve(gruppo.memoria)}
+            </span>
+          </h3>
+          <ul>
+            {gruppo.righe.map(({ processo, livello }) => {
+              const tipo = cheCosE(processo);
+              return (
+                <li key={processo.pid} style={{ paddingLeft: `${livello * 16}px` }}>
+                  <div className="riga-processo">
+                    <span className="nome">
+                      {processo.nome}
+                      {tipo !== undefined && <span className="tenue"> · {tipo}</span>}
+                    </span>
+                    <span className="numero">{percento(processo.cpu)}</span>
+                    <span className="numero">{pesoInBreve(processo.memoria)}</span>
+                    {daTerminare === processo.pid ? (
+                      <span className="pulsanti">
+                        <button type="button" className="mini pericolo" onClick={() => termina(processo.pid)}>
+                          Termina
+                        </button>
+                        <button type="button" className="mini discreto" onClick={() => setDaTerminare(undefined)}>
+                          No
+                        </button>
+                      </span>
+                    ) : (
+                      <button type="button" className="mini discreto" disabled={esito?.pid === processo.pid && esito.errore === undefined} onClick={() => setDaTerminare(processo.pid)}>
+                        {esito?.pid === processo.pid && esito.errore === undefined ? "Termino…" : "Termina…"}
+                      </button>
+                    )}
+                  </div>
+                  {processo.comando !== undefined && <div className="tenue comando-processo">{processo.comando}</div>}
+                  {esito?.pid === processo.pid && esito.errore !== undefined && <p className="errore">{esito.errore}</p>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+      <p className="tenue">Terminare un processo ferma anche ciò che ha avviato. Una conversazione terminata riparte al prossimo messaggio.</p>
+    </section>
   );
 }
 

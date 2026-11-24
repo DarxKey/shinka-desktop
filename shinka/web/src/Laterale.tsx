@@ -1,3 +1,4 @@
+import { pagineDelleEstensioni } from "./Interfaccia.tsx";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { VoceProgetto } from "../../src/protocollo/progetti.ts";
 import { eliminaProgetto, fissaProgetto, rinominaProgetto } from "./api.ts";
@@ -40,7 +41,8 @@ export function Laterale(proprieta: ProprietaLaterale): ReactNode {
   const trovati = filtraArgomenti(archiviati, cercato);
   // Chi sta rileggendo un argomento archiviato lo vede nell'elenco, anche se lo aveva richiuso.
   const elencoAperto = argomentiAperti || vista.tipo === "argomento";
-  const condizioneHome = quadro.home?.condizione ?? "fermo";
+  // Se una chat parallela della Home aspetta il proprietario, la Home aspetta te.
+  const condizioneHome = quadro.home?.complessiva ?? quadro.home?.condizione ?? "fermo";
   const [modo, setModo] = useState<ModoGruppi>(leggiModoGruppi);
   const gruppi = progetti === undefined ? [] : raggruppaProgetti(progetti, modo);
 
@@ -267,6 +269,8 @@ function MenuPagine({
     { vista: { tipo: "estensioni" }, nome: "Estensioni", accanto: estensioni !== undefined && <span className="quanti">{estensioni}</span> },
     { vista: { tipo: "vault" }, nome: "Vault", accanto: vault !== undefined && <span className="quanti">{vault}</span> },
     { vista: { tipo: "impostazioni" }, nome: "Impostazioni" },
+    // Le pagine delle estensioni dell'interfaccia (ADR 0054).
+    ...pagineDelleEstensioni(quadro, "menu").map((una) => ({ vista: { tipo: "interfaccia" as const, id: una.id, pagina: una.pagina }, nome: una.titolo })),
   ];
   const suUnaPagina = pagine.some((pagina) => pagina.vista.tipo === vista.tipo);
   const attivi = quadro.ambienti?.ambienti.filter((ambiente) => ambiente.attivo).length ?? 0;
@@ -314,10 +318,10 @@ function MenuPagine({
           )}
         </button>
         {pagine.map((pagina) => {
-          const attuale = pagina.vista.tipo === vista.tipo;
+          const attuale = frammentoDi(pagina.vista) === frammentoDi(vista);
           return (
             <a
-              key={pagina.vista.tipo}
+              key={frammentoDi(pagina.vista)}
               className={attuale ? "voce attuale" : "voce"}
               href={frammentoDi(pagina.vista)}
               aria-current={attuale ? "page" : undefined}
@@ -340,6 +344,8 @@ function MenuPagine({
 function VoceProgettoLaterale({ progetto, attuale, allaScelta }: { progetto: VoceProgetto; attuale: boolean; allaScelta: () => void }): ReactNode {
   const [inRinomina, setInRinomina] = useState<string>();
   const [elimina, setElimina] = useState(false);
+  // Eliminando, anche la cartella con i file: la scelta parte spuntata, e si toglie per tenerli.
+  const [conLaCartella, setConLaCartella] = useState(true);
   const [errore, setErrore] = useState<string>();
   const [lavoro, setLavoro] = useState(false);
   const chiudiMenu = (evento: { currentTarget: HTMLElement }): void => evento.currentTarget.closest("details")?.removeAttribute("open");
@@ -441,15 +447,27 @@ function VoceProgettoLaterale({ progetto, attuale, allaScelta }: { progetto: Voc
       {elimina && (
         <div className="conferma-annulla" role="alertdialog" aria-label={`Eliminare ${progetto.nome}`}>
           <p>
-            «{progetto.nome}» sparisce da Shinka con la sua conversazione. La cartella con i suoi file resta in {progetto.nomeAmbiente}. Non si torna indietro.
+            «{progetto.nome}» sparisce da Shinka con la sua conversazione. Se sta lavorando si ferma, e con lui l'applicazione, il terminale e i comandi in background. Non si torna indietro.
           </p>
+          <label className="con-la-cartella">
+            <input type="checkbox" checked={conLaCartella} disabled={lavoro} onChange={(evento) => setConLaCartella(evento.target.checked)} />
+            <span>
+              Elimina anche la cartella con i file
+              <br />
+              <code>{progetto.cartella}</code> <span className="tenue">in {progetto.nomeAmbiente}</span>
+            </span>
+          </label>
           <div className="pulsanti">
             <button
               type="button"
               className="mini pericolo"
               disabled={lavoro}
               onClick={() =>
-                void fai(() => eliminaProgetto(progetto.id)).then((riuscito) => {
+                void fai(async () => {
+                  const cartella = await eliminaProgetto(progetto.id, conLaCartella);
+                  // Il progetto non c'è più, ma la cartella è rimasta: lo si dice, perché va tolta a mano.
+                  if (cartella !== undefined && !cartella.riuscita) window.alert(cartella.testo);
+                }).then((riuscito) => {
                   if (!riuscito) return;
                   setElimina(false);
                   if (attuale) window.location.hash = frammentoDi({ tipo: "home" });

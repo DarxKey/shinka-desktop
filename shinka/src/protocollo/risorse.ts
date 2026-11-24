@@ -31,6 +31,19 @@ export interface ProcessoAttivo {
   comando?: string;
 }
 
+/** Un processo acceso da Shinka in un ambiente: una conversazione, un suo comando o server, un terminale. */
+export interface ProcessoDiShinka {
+  pid: number;
+  /** Il processo che lo ha avviato; 0 se lo ha avviato direttamente Shinka. */
+  genitore: number;
+  nome: string;
+  cpu: number;
+  memoria: number;
+  comando?: string;
+  /** La cartella in cui lavora, dove il sistema la dice (non su Windows). */
+  cartella?: string;
+}
+
 export interface ContenitoreDocker {
   nome: string;
   immagine: string;
@@ -75,6 +88,8 @@ export interface RisorseDellAmbiente {
   /** Vero se il nodo gira in un container: vede i suoi processi, non quelli della macchina. */
   inContenitore?: true;
   docker: DockerLetto;
+  /** I processi accesi da Shinka in questo ambiente, per progetto nella pagina; manca dove il nodo non li dice. */
+  processiDiShinka?: ProcessoDiShinka[];
 }
 
 /** Il Docker di un host per gli stack, letto dal gateway con la sua credenziale. */
@@ -244,5 +259,25 @@ export function leggiRisorse(valore: unknown): RisorseDellAmbiente | undefined {
     ...(typeof campi.motivoProcessi === "string" ? { motivoProcessi: campi.motivoProcessi.slice(0, 300) } : {}),
     ...(campi.inContenitore === true ? { inContenitore: true as const } : {}),
     docker: leggiDocker(campi.docker),
+    ...(Array.isArray(campi.processiDiShinka)
+      ? {
+          processiDiShinka: (campi.processiDiShinka as unknown[]).slice(0, 200).flatMap((voce): ProcessoDiShinka[] => {
+            const uno = (typeof voce === "object" && voce !== null ? voce : {}) as Record<string, unknown>;
+            const pid = numero(uno.pid);
+            if (pid === undefined) return [];
+            return [
+              {
+                pid,
+                genitore: numero(uno.genitore) ?? 0,
+                nome: scritto(uno.nome, 80),
+                cpu: numero(uno.cpu, 0, 100_000) ?? 0,
+                memoria: numero(uno.memoria) ?? 0,
+                ...(typeof uno.comando === "string" && uno.comando !== "" ? { comando: uno.comando.slice(0, 400) } : {}),
+                ...(typeof uno.cartella === "string" && uno.cartella !== "" ? { cartella: uno.cartella.slice(0, 1000) } : {}),
+              },
+            ];
+          }),
+        }
+      : {}),
   };
 }

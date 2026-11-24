@@ -3,6 +3,7 @@
  * È una funzione pura: dato lo stato e un evento, restituisce lo stato nuovo.
  */
 
+import type { PaginaDiEstensione, PulsanteDiEstensione } from "../../src/protocollo/interfaccia.ts";
 import type { Immagine } from "../../src/protocollo/allegati.ts";
 import type { EstensioniDegliAmbienti, SkillDiPartenza } from "../../src/protocollo/avvio-progetto.ts";
 import type { ContenutoPlugin, DefinizioneEstensione } from "../../src/protocollo/estensioni.ts";
@@ -17,6 +18,8 @@ export interface Permesso {
   id: string;
   stato: StatoPermesso;
   motivo?: string;
+  /** Ciò che «Approva sempre» salverebbe, se l'harness lo propone. */
+  regola?: string;
 }
 
 export type Elemento =
@@ -149,6 +152,18 @@ export type Elemento =
       strumenti?: string[];
       motivo?: string;
     }
+  /** La proposta di un'estensione dell'interfaccia (ADR 0054), con le pagine da guardare in anteprima. */
+  | {
+      tipo: "interfaccia";
+      chiave: string;
+      nome: string;
+      descrizione: string;
+      sostituisce?: true;
+      righeTema?: number;
+      pagine: PaginaDiEstensione[];
+      pulsanti: PulsanteDiEstensione[];
+      esito?: "confermata" | "annullata";
+    }
   /** Com'è finita un'installazione: il centro lo dice quando è ripartito. */
   | { tipo: "installata"; chiave: string; versione: string; riuscita: boolean; motivo?: string }
   /**
@@ -243,6 +258,7 @@ export function aspettaIlProprietario(elementi: readonly Elemento[]): boolean {
       case "sviluppo":
       case "installazione":
       case "estensione":
+      case "interfaccia":
         return e.esito === undefined;
       case "scelta":
         return !e.superata;
@@ -413,6 +429,7 @@ export function applica(stato: StatoChat, evento: EventoConversazione): StatoCha
         id: evento.idPermesso,
         stato: "in-attesa",
         ...(evento.motivo === undefined ? {} : { motivo: evento.motivo }),
+        ...(evento.regola === undefined ? {} : { regola: evento.regola }),
       };
       // La richiesta può arrivare prima dell'azione a cui si riferisce.
       if (trova(stato, evento.idAzione) === undefined) {
@@ -568,6 +585,22 @@ export function applica(stato: StatoChat, evento: EventoConversazione): StatoCha
         avvisi: evento.avvisi,
         ...(evento.giaInElenco === true ? { giaInElenco: true as const } : {}),
       });
+
+    case "interfaccia-proposta":
+      if (trova(stato, evento.idProposta) !== undefined) return stato;
+      return aggiungi(stato, {
+        tipo: "interfaccia",
+        chiave: evento.idProposta,
+        nome: evento.nome,
+        descrizione: evento.descrizione,
+        ...(evento.sostituisce === true ? { sostituisce: true as const } : {}),
+        ...(evento.righeTema === undefined ? {} : { righeTema: evento.righeTema }),
+        pagine: evento.pagine,
+        pulsanti: evento.pulsanti,
+      });
+
+    case "interfaccia-decisa":
+      return cambia(stato, evento.idProposta, (e) => (e.tipo === "interfaccia" ? { ...e, esito: evento.esito } : e));
 
     case "estensione-decisa":
       return cambia(stato, evento.idProposta, (e) =>

@@ -1,4 +1,5 @@
-import { Children, isValidElement, memo, useEffect, useState, type ReactNode } from "react";
+import { separaFonti } from "./fonti.ts";
+import { Children, isValidElement, memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import Markdown, { type Components } from "react-markdown";
 import type { PluggableList } from "unified";
 import { useAspetto } from "./aspetto.ts";
@@ -15,6 +16,7 @@ import { anteprimaProposta, comandoSuHost, dettaglioDi, etichettaDi, oraInBreve 
 import { SchedaDomande } from "./Domande.tsx";
 import { SchedaElaborato } from "./Elaborati.tsx";
 import { SchedaEstensione } from "./Estensioni.tsx";
+import { SchedaInterfaccia } from "./Interfaccia.tsx";
 import { esitoDi, riassuntoDi, type Azione, type Gruppo, type Voce } from "./gruppi.ts";
 import { ImmagineNelTesto, Immagini } from "./Immagini.tsx";
 import { disposizioneImmagini } from "./immagini-nel-testo.ts";
@@ -166,7 +168,7 @@ function RispostaDiClaude({ voce }: { voce: Extract<Elemento, { tipo: "testo" }>
   const [rigenera, setRigenera] = useState(false);
   return (
         <div className={voce.concluso ? "riga claude" : "riga claude in-arrivo"}>
-          <Formattato testo={voce.testo} />
+          <TestoConFonti testo={voce.testo} />
           {voce.concluso && voce.testo.trim() !== "" && (
             <div className="azioni-risposta">
               <PulsanteCopia testo={voce.testo} etichetta="Copia la risposta" />
@@ -181,6 +183,21 @@ function RispostaDiClaude({ voce }: { voce: Extract<Elemento, { tipo: "testo" }>
             <ModificaMessaggio idMessaggio={ultimoModificabile.id} testoIniziale={ultimoModificabile.testo} allaChiusura={() => setRigenera(false)} />
           )}
         </div>
+  );
+}
+
+/** Una risposta con le sue fonti in fondo chiuse sotto un pulsante, per non allungarla. */
+function TestoConFonti({ testo }: { testo: string }): ReactNode {
+  const { corpo, fonti, quante } = useMemo(() => separaFonti(testo), [testo]);
+  if (fonti === undefined) return <Formattato testo={testo} />;
+  return (
+    <>
+      <Formattato testo={corpo} />
+      <details className="fonti-risposta">
+        <summary>{quante === 1 ? "Fonte" : `Fonti (${quante})`}</summary>
+        <Formattato testo={fonti} />
+      </details>
+    </>
   );
 }
 
@@ -213,6 +230,8 @@ function AltraVoce({ voce }: { voce: Exclude<Voce, { tipo: "proprietario" | "tes
       return <SchedaSviluppo sviluppo={voce} />;
     case "estensione":
       return <SchedaEstensione proposta={voce} />;
+    case "interfaccia":
+      return <SchedaInterfaccia proposta={voce} />;
     case "installazione":
       return <SchedaInstallazione installazione={voce} />;
     case "installata":
@@ -609,6 +628,7 @@ function VistaAzione({ azione, senzaImmagini }: { azione: Azione; senzaImmagini?
         <RichiestaPermesso
           idPermesso={azione.permesso.id}
           motivo={azione.permesso.motivo}
+          regola={azione.permesso.regola}
           comando={comandoSuHost(azione.strumento, azione.ingresso)}
         />
       )}
@@ -629,10 +649,13 @@ function VistaAzione({ azione, senzaImmagini }: { azione: Azione; senzaImmagini?
 function RichiestaPermesso({
   idPermesso,
   motivo,
+  regola,
   comando,
 }: {
   idPermesso: string;
   motivo: string | undefined;
+  /** Ciò che «Approva sempre» salva nelle impostazioni del progetto; senza, il pulsante non c'è. */
+  regola?: string | undefined;
   /** Il comando per un host, per intero: il consenso vale per quello, e la riga in alto lo tronca. */
   comando: string | undefined;
 }): ReactNode {
@@ -640,11 +663,11 @@ function RichiestaPermesso({
   const [inviata, setInviata] = useState<DecisionePermesso>();
   const [errore, setErrore] = useState<string>();
 
-  async function decidi(decisione: DecisionePermesso): Promise<void> {
+  async function decidi(decisione: DecisionePermesso, sempre = false): Promise<void> {
     setInviata(decisione);
     setErrore(undefined);
     try {
-      await decidiPermesso(base, idPermesso, decisione);
+      await decidiPermesso(base, idPermesso, decisione, sempre);
     } catch (causa) {
       setInviata(undefined);
       setErrore(causa instanceof Error ? causa.message : "Decisione non registrata.");
@@ -664,10 +687,16 @@ function RichiestaPermesso({
         >
           Approva
         </button>
+        {regola !== undefined && base.startsWith("/api/progetti/") && (
+          <button type="button" disabled={inviata !== undefined} title={`Salva nel progetto la regola: ${regola}`} onClick={() => void decidi("approvato", true)}>
+            Approva sempre
+          </button>
+        )}
         <button type="button" disabled={inviata !== undefined} onClick={() => void decidi("negato")}>
           Nega
         </button>
       </div>
+      {regola !== undefined && base.startsWith("/api/progetti/") && <p className="tenue regola-permesso">«Approva sempre» vale in questo progetto anche le prossime volte per: {regola}</p>}
       {errore !== undefined && (
         <p className="errore" role="alert">
           {errore}

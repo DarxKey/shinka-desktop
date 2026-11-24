@@ -1,4 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { pagineDelleEstensioni, RiquadroEstensione } from "./Interfaccia.tsx";
+import { useQuadroCorrente } from "./Quadro.tsx";
 import type { StatoAnteprima } from "../../src/protocollo/anteprima.ts";
 import { Anteprima, type RichiestaAnteprima } from "./Anteprima.tsx";
 import { PannelloFile } from "./PannelloFile.tsx";
@@ -6,11 +8,14 @@ import { PannelloModifiche, type TurnoModificato } from "./PannelloModifiche.tsx
 import type { FileDeiComandi } from "../../src/protocollo/modifiche.ts";
 
 // Il terminale porta con sé una libreria pesante: si carica solo quando lo si apre.
-const Terminale = lazy(() => import("./Terminale.tsx").then((modulo) => ({ default: modulo.Terminale })));
+const Terminale = lazy(() => import("./Terminale.tsx").then((modulo) => ({ default: modulo.TerminaliDelProgetto })));
 
-export type Scheda = "modifiche" | "file" | "terminale" | "anteprima";
+/** Le schede del pannello: le sue, e quelle delle pagine delle estensioni dell'interfaccia, come "estensione:id/pagina". */
+export type Scheda = "modifiche" | "file" | "terminale" | "anteprima" | `estensione:${string}`;
 
-const NOMI_SCHEDE: Record<Scheda, string> = { modifiche: "Modifiche", file: "File", terminale: "Terminale", anteprima: "Anteprima" };
+type SchedaPropria = "modifiche" | "file" | "terminale" | "anteprima";
+
+const NOMI_SCHEDE: Record<SchedaPropria, string> = { modifiche: "Modifiche", file: "File", terminale: "Terminale", anteprima: "Anteprima" };
 
 /** I pulsanti in testata al progetto: aprono il pannello sulla scheda scelta, o lo chiudono. */
 export function PulsantiPannello({
@@ -113,6 +118,11 @@ export function PannelloProgetto({
   fileDeiComandi?: FileDeiComandi;
 }): ReactNode {
   const pannello = useRef<HTMLElement>(null);
+  const quadro = useQuadroCorrente();
+  // Le pagine delle estensioni dell'interfaccia che vanno nel pannello (ADR 0054), con dove sono aperte.
+  const dellEstensioni = pagineDelleEstensioni(quadro, "pannello");
+  const nomeProgetto = quadro.progetti?.progetti.find((progetto) => progetto.id === idProgetto)?.nome ?? "";
+  const qui = useMemo(() => ({ tipo: "progetto" as const, id: idProgetto, nome: nomeProgetto }), [idProgetto, nomeProgetto]);
   // Una scheda nasce la prima volta che la si guarda, e poi resta: cambiare scheda non chiude il terminale.
   const [viste, setViste] = useState<ReadonlySet<Scheda>>(() => new Set([scheda]));
   useEffect(() => {
@@ -141,11 +151,19 @@ export function PannelloProgetto({
     <aside className="affianco" ref={pannello} aria-label="Modifiche, file, terminale e anteprima del progetto">
       <header className="affianco-testata">
         <div className="schede" role="tablist">
-          {(Object.keys(NOMI_SCHEDE) as Scheda[]).map((una) => (
+          {(Object.keys(NOMI_SCHEDE) as SchedaPropria[]).map((una) => (
             <button key={una} type="button" role="tab" aria-selected={scheda === una} className="scheda" onClick={() => alCambio(una)}>
               {NOMI_SCHEDE[una]}
             </button>
           ))}
+          {dellEstensioni.map((una) => {
+            const chiave: Scheda = `estensione:${una.id}/${una.pagina}`;
+            return (
+              <button key={chiave} type="button" role="tab" aria-selected={scheda === chiave} className="scheda" onClick={() => alCambio(chiave)}>
+                {una.titolo}
+              </button>
+            );
+          })}
         </div>
         <button type="button" className="discreto chiudi-affianco" aria-label="Chiudi il pannello e torna alla chat" onClick={allaChiusura}>
           ×
@@ -177,6 +195,14 @@ export function PannelloProgetto({
           <Anteprima idProgetto={idProgetto} nomeAmbiente={nomeAmbiente} stato={anteprima} richiesta={richiesta} />
         )}
       </div>
+      {dellEstensioni.map((una) => {
+        const chiave: Scheda = `estensione:${una.id}/${una.pagina}`;
+        return (
+          <div key={chiave} className="affianco-corpo" role="tabpanel" hidden={scheda !== chiave}>
+            {viste.has(chiave) && <RiquadroEstensione id={una.id} pagina={una.pagina} titolo={una.titolo} qui={qui} />}
+          </div>
+        );
+      })}
     </aside>
   );
 }

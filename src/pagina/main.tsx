@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { avviaAspetto } from "../../shinka/web/src/aspetto.ts";
 import "../../shinka/web/src/stile.css";
 import { AppDesktop } from "./AppDesktop.tsx";
+import { AvvioDelLogo } from "./AvvioDelLogo.tsx";
 import { ascoltaTastieraEMenu } from "./comandi.ts";
 import "./desktop.css";
 import { sostituisciLeSorgenti } from "./sorgente.ts";
@@ -30,5 +31,6 @@ if (radice === null) throw new Error("Manca l'elemento radice della pagina.");
 createRoot(radice).render(
   <StrictMode>
     <AppDesktop />
+    <AvvioDelLogo />
   </StrictMode>,
 );

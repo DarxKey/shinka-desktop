@@ -1,5 +1,6 @@
 /** Chiamate dal browser al centro. */
 
+import type { StatoEstensioniDelProgetto } from "../../src/protocollo/progetti.ts";
 import type { ChiImplementa, StatoChiImplementa } from "../../src/protocollo/incarichi.ts";
 import type { ScelteAvvisi } from "../../src/protocollo/avvisi.ts";
 import type { DettaglioDellAmbiente } from "../../src/protocollo/risorse.ts";
@@ -10,7 +11,7 @@ import type { NuovoProgrammato, StatoProgrammati } from "../../src/protocollo/pr
 import type { AccessiDiUnAmbiente, EsitoAccessi, ImpostazioniViste, RichiestaAccessi } from "../../src/protocollo/accessi.ts";
 import type { Allegato } from "../../src/protocollo/allegati.ts";
 import type { ElaboratoConsegnato } from "../../src/protocollo/elaborati.ts";
-import type { AnteprimaRiavvolgimento, DecisionePermesso, RispostaAParte, RispostaAlleDomande, UscitaAttivita } from "../../src/protocollo/eventi.ts";
+import type { AnteprimaRiavvolgimento, DecisionePermesso, RispostaAlleDomande, UscitaAttivita } from "../../src/protocollo/eventi.ts";
 import type { StileDiRisposta } from "../../src/protocollo/stili.ts";
 import type { ElencoCartella, FileTrovati } from "../../src/protocollo/file-progetto.ts";
 import type { Archiviazione, Uso } from "../../src/protocollo/uso.ts";
@@ -54,6 +55,27 @@ export function baseDellArgomento(idArgomento: string): string {
 /** Indirizzo di base delle chiamate che riguardano la conversazione di un progetto. */
 export function baseDelProgetto(idProgetto: string): string {
   return `/api/progetti/${encodeURIComponent(idProgetto)}`;
+}
+
+/** L'indirizzo di base di una chat della Home: la principale, o una chat parallela (ADR 0052). */
+export function baseDellaChatDellaHome(numero: number): string {
+  return numero === 1 ? BASE_HOME : `${BASE_HOME}/chat/${numero}`;
+}
+
+/** Vero se l'indirizzo è quello di una chat della Home, principale o parallela. */
+export function eDellaHome(base: string): boolean {
+  return base === BASE_HOME || base.startsWith(`${BASE_HOME}/chat/`);
+}
+
+/** Apre una chat parallela nella Home, o con un progetto in quel progetto. Restituisce il suo numero. */
+export async function apriChatParallela(idProgetto?: string): Promise<number> {
+  const dati = (await chiama("POST", idProgetto === undefined ? `${BASE_HOME}/chat` : `${baseDelProgetto(idProgetto)}/chat`)) as { numero: number };
+  return dati.numero;
+}
+
+/** Chiude una chat parallela della Home, o con un progetto di quel progetto. */
+export async function chiudiChatParallela(numero: number, idProgetto?: string): Promise<void> {
+  await chiama("DELETE", idProgetto === undefined ? `${BASE_HOME}/chat/${numero}` : `${baseDelProgetto(idProgetto)}/chat/${numero}`);
 }
 
 async function chiama(metodo: "GET" | "POST" | "PUT" | "DELETE", percorso: string, corpo?: unknown): Promise<unknown> {
@@ -154,9 +176,13 @@ export async function fissaProgetto(idProgetto: string, fissato: boolean): Promi
   await chiama("POST", `${baseDelProgetto(idProgetto)}/fissato`, { fissato });
 }
 
-/** Elimina un progetto da Shinka: la sua cartella resta. */
-export async function eliminaProgetto(idProgetto: string): Promise<void> {
-  await chiama("DELETE", baseDelProgetto(idProgetto));
+/**
+ * Elimina un progetto da Shinka, fermando ciò che sta facendo. Con `cartella` se ne va anche la
+ * cartella con i file; com'è andata, se lo si è chiesto.
+ */
+export async function eliminaProgetto(idProgetto: string, cartella = false): Promise<{ riuscita: boolean; testo: string } | undefined> {
+  const risposta = (await chiama("DELETE", `${baseDelProgetto(idProgetto)}${cartella ? "?cartella=si" : ""}`)) as { cartella?: { riuscita: boolean; testo: string } };
+  return risposta.cartella;
 }
 
 /** Elimina un argomento archiviato, con la sua cartella nell'ambiente del centro. */
@@ -173,18 +199,13 @@ export async function leggiArchiviazione(): Promise<Archiviazione> {
 }
 
 /** Il messaggio modificato parte in un argomento nuovo della Home, con la storia fino a lì. */
-export async function mandaInUnRamo(idMessaggio: string, testo: string): Promise<void> {
-  await chiama("POST", `${BASE_HOME}/messaggi/${encodeURIComponent(idMessaggio)}/ramo`, { testo });
+export async function mandaInUnRamo(base: string, idMessaggio: string, testo: string): Promise<void> {
+  await chiama("POST", `${base}/messaggi/${encodeURIComponent(idMessaggio)}/ramo`, { testo });
 }
 
 /** La parte finale dell'uscita di un'attività della conversazione. */
 export async function leggiUscitaAttivita(base: string, idAttivita: string): Promise<UscitaAttivita> {
   return (await chiama("GET", `${base}/attivita/${encodeURIComponent(idAttivita)}/uscita`)) as UscitaAttivita;
-}
-
-/** Una domanda a parte: Claude risponde, e nella conversazione non resta nulla. */
-export async function chiediAParte(base: string, domanda: string): Promise<RispostaAParte> {
-  return (await chiama("POST", `${base}/a-parte`, { domanda })) as RispostaAParte;
 }
 
 /** Gli stili di risposta tra cui scegliere; `siCreano` dice se se ne possono aggiungere. */
@@ -246,8 +267,8 @@ export async function leggiAzione(base: string, id: string): Promise<{ ingresso:
   return (await chiama("GET", `${base}/azioni/${encodeURIComponent(id)}`)) as { ingresso: unknown; esito?: string };
 }
 
-export async function decidiPermesso(base: string, id: string, decisione: DecisionePermesso): Promise<void> {
-  await chiama("POST", `${base}/permessi/${encodeURIComponent(id)}`, { decisione });
+export async function decidiPermesso(base: string, id: string, decisione: DecisionePermesso, sempre = false): Promise<void> {
+  await chiama("POST", `${base}/permessi/${encodeURIComponent(id)}`, { decisione, ...(sempre ? { sempre: true } : {}) });
 }
 
 /** Risponde alle domande che Claude ha posto in questa conversazione, oppure le salta. */
@@ -291,6 +312,36 @@ export async function decidiEstensione(id: string, esito: "confermata" | "annull
 }
 
 /** Accende o spegne in un ambiente un'estensione dell'elenco. Accenderla la prova di nuovo, lì. */
+/** Il proprietario conferma o annulla la proposta di un'estensione dell'interfaccia. */
+export async function decidiInterfaccia(idProposta: string, esito: "confermata" | "annullata"): Promise<void> {
+  await chiama("POST", `/api/interfaccia/proposte/${encodeURIComponent(idProposta)}`, { esito });
+}
+
+/** Accende o spegne un'estensione dell'interfaccia. */
+export async function accendiInterfaccia(id: string, accesa: boolean): Promise<void> {
+  await chiama("POST", `/api/interfaccia/${encodeURIComponent(id)}`, { accesa });
+}
+
+/** Toglie un'estensione dell'interfaccia dall'elenco. */
+export async function togliInterfaccia(id: string): Promise<void> {
+  await chiama("DELETE", `/api/interfaccia/${encodeURIComponent(id)}`);
+}
+
+/** L'indirizzo di una pagina di un'estensione dell'interfaccia, o di una proposta per l'anteprima. */
+export function indirizzoPaginaEstensione(id: string, idPagina: string, proposta = false): string {
+  return `/api/interfaccia/${proposta ? "proposte/" : ""}${encodeURIComponent(id)}/pagine/${encodeURIComponent(idPagina)}`;
+}
+
+/** Sceglie la risposta massima di un modello locale, che decide la riserva per la compattazione. */
+export async function impostaUscita(id: string, uscita: number): Promise<void> {
+  await chiama("POST", `/api/estensioni/${encodeURIComponent(id)}/uscita`, { uscita });
+}
+
+/** Mette in rete un modello locale acceso in un ambiente, all'indirizzo indicato, o con nulla lo toglie dalla rete. */
+export async function mettiInRete(id: string, idAmbiente: string, indirizzo: string | null): Promise<void> {
+  await chiama("POST", `/api/estensioni/${encodeURIComponent(id)}/ambienti/${encodeURIComponent(idAmbiente)}/rete`, { indirizzo });
+}
+
 export async function accendiEstensione(
   id: string,
   idAmbiente: string,
@@ -314,9 +365,9 @@ export async function interrompi(base: string): Promise<void> {
   await chiama("POST", `${base}/interrompi`);
 }
 
-/** Chiude l'argomento aperto nella Home e ne comincia uno nuovo. */
-export async function nuovoArgomento(): Promise<void> {
-  await chiama("POST", `${BASE_HOME}/argomento-nuovo`);
+/** Chiude l'argomento aperto in una chat della Home, di suo la principale, e ne comincia uno nuovo. */
+export async function nuovoArgomento(base: string = BASE_HOME): Promise<void> {
+  await chiama("POST", `${base}/argomento-nuovo`);
 }
 
 /** Riprende un argomento archiviato: quello aperto viene archiviato al suo posto. */
@@ -402,9 +453,9 @@ export async function scegliHttps(scelta: { attivo: boolean; nomi: string[]; rei
 }
 
 /** L'indirizzo del collegamento con il terminale di un progetto. */
-export function indirizzoDelTerminale(idProgetto: string): string {
+export function indirizzoDelTerminale(idProgetto: string, scheda = 1): string {
   const schema = window.location.protocol === "https:" ? "wss" : "ws";
-  return `${schema}://${window.location.host}${baseDelProgetto(idProgetto)}/terminale`;
+  return `${schema}://${window.location.host}${baseDelProgetto(idProgetto)}/terminale${scheda > 1 ? `?scheda=${scheda}` : ""}`;
 }
 
 /** Apre l'anteprima del progetto su una porta del suo ambiente: prende il posto di quella aperta prima. */
@@ -495,6 +546,11 @@ export async function decidiRichiesta(id: string, decisione: DecisionePermesso):
 }
 
 /** Come stanno adesso le risorse di un ambiente: lo chiede la sua pagina, finché è aperta. */
+/** Termina un processo acceso da Shinka in un ambiente, con ciò che ha avviato. */
+export async function terminaProcesso(idAmbiente: string, pid: number): Promise<void> {
+  await chiama("POST", `/api/ambienti/${encodeURIComponent(idAmbiente)}/processi/${pid}/termina`);
+}
+
 export async function leggiRisorseAmbiente(id: string): Promise<DettaglioDellAmbiente> {
   return (await chiama("GET", `/api/ambienti/${encodeURIComponent(id)}/risorse`)) as DettaglioDellAmbiente;
 }
@@ -605,6 +661,16 @@ export async function collegaCartella(idProgetto: string, idAmbiente: string, ca
 
 export async function scollegaCartella(idProgetto: string, idAmbiente: string): Promise<StatoCollegate> {
   return (await chiama("DELETE", `${baseDelProgetto(idProgetto)}/collegate/${encodeURIComponent(idAmbiente)}`)) as StatoCollegate;
+}
+
+/** Le estensioni del progetto: quelle accese nel suo ambiente, e quali ha. */
+export async function leggiEstensioniDelProgetto(idProgetto: string): Promise<StatoEstensioniDelProgetto> {
+  return (await chiama("GET", `${baseDelProgetto(idProgetto)}/estensioni`)) as StatoEstensioniDelProgetto;
+}
+
+/** Sceglie le estensioni del progetto, anche a progetto avviato; null per averle tutte. */
+export async function cambiaEstensioniDelProgetto(idProgetto: string, scelte: string[] | null): Promise<StatoEstensioniDelProgetto> {
+  return (await chiama("PUT", `${baseDelProgetto(idProgetto)}/estensioni`, { scelte })) as StatoEstensioniDelProgetto;
 }
 
 /** Chi implementa gli incarichi del progetto (ADR 0051). */

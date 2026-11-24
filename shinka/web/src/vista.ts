@@ -32,7 +32,9 @@ export type Vista =
   /** Le sessioni aperte e il registro delle richieste al centro. */
   | { tipo: "sicurezza" }
   /** Il motore delle conversazioni nuove e gli accessi dei motori negli ambienti. */
-  | { tipo: "impostazioni" };
+  | { tipo: "impostazioni" }
+  /** Una pagina di un'estensione dell'interfaccia (ADR 0054). */
+  | { tipo: "interfaccia"; id: string; pagina: string };
 
 const RADICI = { progetto: "progetti", argomento: "argomenti" } as const;
 
@@ -64,6 +66,14 @@ export function vistaDa(frammento: string): Vista {
       return { tipo: "cerca", parole: decodeURIComponent(cercato[1]) };
     } catch {
       return { tipo: "cerca" };
+    }
+  }
+  const pagina = /^#\/interfaccia\/([^/?#]+)\/([a-z0-9-]+)$/.exec(frammento);
+  if (pagina?.[1] !== undefined && pagina[2] !== undefined) {
+    try {
+      return { tipo: "interfaccia", id: decodeURIComponent(pagina[1]), pagina: pagina[2] };
+    } catch {
+      return { tipo: "home" };
     }
   }
   const skill = /^#\/skill\/([a-z0-9-]+)$/.exec(frammento);
@@ -109,6 +119,8 @@ export function frammentoDi(vista: Vista): string {
       return "#/sicurezza";
     case "impostazioni":
       return "#/impostazioni";
+    case "interfaccia":
+      return `#/interfaccia/${encodeURIComponent(vista.id)}/${vista.pagina}`;
     default:
       return `#/${RADICI[vista.tipo]}/${encodeURIComponent(vista.id)}`;
   }

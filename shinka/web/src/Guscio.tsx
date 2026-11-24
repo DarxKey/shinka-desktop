@@ -1,4 +1,5 @@
 import { ReteDiSicurezza } from "./ReteDiSicurezza.tsx";
+import { PaginaEstensione, TemiDelleEstensioni } from "./Interfaccia.tsx";
 import { PaginaImpostazioni } from "./Impostazioni.tsx";
 import { PaginaCerca } from "./Cerca.tsx";
 import { PaginaArchiviazione, PaginaUso } from "./Uso.tsx";
@@ -11,7 +12,9 @@ import { leggiAffiancata, MenuAffianca, scriviAffiancata, stessaConversazione, t
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { VoceProgetto } from "../../src/protocollo/progetti.ts";
 import { PannelloAmbienti } from "./Ambienti.tsx";
-import { BASE_HOME, baseDellArgomento, baseDelProgetto, esci, nuovoArgomento, riapriArgomento } from "./api.ts";
+import { BASE_HOME, baseDellArgomento, baseDellaChatDellaHome, baseDelProgetto, esci, nuovoArgomento, riapriArgomento } from "./api.ts";
+import { leggiChatScelta, PulsanteNuovaChat, SchedeDelleChat, scriviChatScelta } from "./ChatParallele.tsx";
+import { conversazioneDellaChat } from "../../src/protocollo/chat-parallele.ts";
 import { Chat, type ComandoChat, type ProprietaChat } from "./Chat.tsx";
 import { condizioneInParole, giornoInBreve, skillNonViste } from "./descrivi.ts";
 import type { RichiestaAnteprima } from "./Anteprima.tsx";
@@ -36,11 +39,14 @@ const TONI: Record<VoceProgetto["condizione"], NonNullable<ProprietaChat["condiz
   "ambiente-spento": "spenta",
 };
 
-const COMANDO_NUOVO_ARGOMENTO: ComandoChat = {
-  etichetta: "Nuovo argomento",
-  descrizione: "Archivia questo argomento e comincia da capo",
-  esegui: nuovoArgomento,
-};
+/** Il comando della testata di una chat della Home: archivia il suo argomento e ne comincia uno nuovo. */
+function comandoNuovoArgomento(base: string): ComandoChat {
+  return {
+    etichetta: "Nuovo argomento",
+    descrizione: "Archivia questo argomento e comincia da capo",
+    esegui: () => nuovoArgomento(base),
+  };
+}
 
 /** Dove questo browser ricorda fino a quando il proprietario ha visto le skill. */
 const CHIAVE_SKILL_VISTE = "shinka.skill.viste";
@@ -74,6 +80,21 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
   }, [frammento]);
 
   const apriProgetto = useCallback((id: string) => vaiA({ tipo: "progetto", id }), []);
+
+  // La chat scelta nella Home e in ciascun progetto, tra la principale e le chat parallele (ADR 0052).
+  const [chatScelte, setChatScelte] = useState<Record<string, number>>({});
+  const chatScelta = useCallback(
+    (idProgetto: string | undefined, aperte: readonly { numero: number }[]): number => {
+      const scelta = chatScelte[idProgetto ?? ""] ?? leggiChatScelta(idProgetto);
+      // Una chat che non è (più) aperta lascia il posto alla principale.
+      return scelta === 1 || aperte.some((chat) => chat.numero === scelta) ? scelta : 1;
+    },
+    [chatScelte],
+  );
+  const scegliChat = useCallback((idProgetto: string | undefined, numero: number) => {
+    setChatScelte((prima) => ({ ...prima, [idProgetto ?? ""]: numero }));
+    scriviChatScelta(idProgetto, numero);
+  }, []);
 
   // Il pannello accanto alla chat di un progetto, con terminale e anteprima: vale per il progetto
   // in cui è stato aperto, e passando a un altro si chiude.
@@ -257,17 +278,33 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
     contenuto = <PaginaSicurezza menu={menu} ambienti={quadro.ambienti?.ambienti ?? []} />;
   } else if (vista.tipo === "impostazioni") {
     contenuto = <PaginaImpostazioni menu={menu} />;
+  } else if (vista.tipo === "interfaccia") {
+    contenuto = <PaginaEstensione menu={menu} id={vista.id} pagina={vista.pagina} />;
   } else if (vista.tipo === "home") {
+    const chatHome = quadro.home?.chat ?? [];
+    const numero = chatScelta(undefined, chatHome);
+    const base = baseDellaChatDellaHome(numero);
     contenuto = (
       <Chat
-          key={BASE_HOME}
-          base={BASE_HOME}
+          key={base}
+          base={base}
           titolo="Home"
+          {...(numero === 1 ? {} : { sottotitolo: `Chat ${numero}` })}
           segnaposto="Scrivi alla Home…"
-          seVuota="Scrivi alla Home: risponde, cerca e fa da sé i lavori che si chiudono in una seduta, in qualunque ambiente acceso. Per quelli lunghi ti propone un progetto."
-          comando={COMANDO_NUOVO_ARGOMENTO}
+          seVuota={
+            numero === 1
+              ? "Scrivi alla Home: risponde, cerca e fa da sé i lavori che si chiudono in una seduta, in qualunque ambiente acceso. Per quelli lunghi ti propone un progetto."
+              : "Una chat parallela della Home: un argomento nuovo, che lavora anche mentre la principale lavora. Chiudendola, il suo argomento va tra gli archiviati."
+          }
+          comando={comandoNuovoArgomento(base)}
           menu={menu}
-          strumenti={menuAffianca}
+          schede={<SchedeDelleChat aperte={chatHome} scelta={numero} allaScelta={(scelta) => scegliChat(undefined, scelta)} />}
+          strumenti={
+            <>
+              <PulsanteNuovaChat aperte={chatHome} allApertura={(scelta) => scegliChat(undefined, scelta)} />
+              {menuAffianca}
+            </>
+          }
           conPosizione
           alApriElaborato={apriElaborato}
           alApriProgetto={apriProgetto}
@@ -331,14 +368,22 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
         setAffianco(undefined);
         setRichiestaAnteprima(undefined);
       };
+      const chatAperte = progetto.chat ?? [];
+      const numero = chatScelta(progetto.id, chatAperte);
+      const idConversazione = conversazioneDellaChat(progetto.id, numero);
+      // Con le chat parallele la condizione del progetto è di tutte: ciascuna chat mostra la sua.
+      const condizioneChat = numero === 1 ? (chatAperte.length === 0 || spento ? progetto.condizione : undefined) : chatAperte.find((chat) => chat.numero === numero)?.condizione;
+      // Il pannello Modifiche segue la conversazione principale.
+      const principale = numero === 1;
       contenuto = (
         <div className={scheda === undefined ? "affiancati" : "affiancati aperto"}>
         <Chat
-          key={progetto.id}
-          base={baseDelProgetto(progetto.id)}
+          key={idConversazione}
+          base={baseDelProgetto(idConversazione)}
           titolo={progetto.nome}
-          sottotitolo={`${progetto.nomeAmbiente} · ${progetto.cartella}`}
-          condizione={{ parola: condizioneInParole(progetto.condizione), tono: TONI[progetto.condizione] }}
+          sottotitolo={`${progetto.nomeAmbiente} · ${progetto.cartella}${numero === 1 ? "" : ` · chat ${numero}`}`}
+          {...(condizioneChat === undefined ? {} : { condizione: { parola: condizioneInParole(condizioneChat), tono: TONI[condizioneChat] } })}
+          schede={<SchedeDelleChat idProgetto={progetto.id} aperte={chatAperte} scelta={numero} allaScelta={(scelta) => scegliChat(progetto.id, scelta)} />}
           segnaposto={`Scrivi a ${progetto.nome}…`}
           seVuota="Questa conversazione è ancora vuota."
           {...(spento
@@ -349,6 +394,7 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
           menu={menu}
           strumenti={
             <>
+              {!spento && <PulsanteNuovaChat idProgetto={progetto.id} aperte={chatAperte} allApertura={(scelta) => scegliChat(progetto.id, scelta)} />}
               {menuAffianca}
               <PulsantiPannello
                 scheda={scheda}
@@ -361,8 +407,13 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
             setAffianco({ idProgetto: progetto.id, scheda: "anteprima" });
             setRichiestaAnteprima({ idProgetto: progetto.id, porta, percorso, n: numeroRichiesta.current });
           }}
-          alApriModifiche={(idTurno) => setAffianco({ idProgetto: progetto.id, scheda: "modifiche", turno: idTurno })}
-          alleModifiche={(turni, occupata, fileDeiComandi) => alleModifiche(progetto.id, turni, occupata, fileDeiComandi)}
+          {...(principale
+            ? {
+                alApriModifiche: (idTurno: string) => setAffianco({ idProgetto: progetto.id, scheda: "modifiche", turno: idTurno }),
+                alleModifiche: (turni: TurnoModificato[], occupata: boolean, fileDeiComandi: FileDeiComandi | undefined) =>
+                  alleModifiche(progetto.id, turni, occupata, fileDeiComandi),
+              }
+            : {})}
           allUscita={allUscita}
         />
         {scheda !== undefined && (
@@ -442,6 +493,7 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
 
   return (
     <FornitoreQuadro value={quadro}>
+      <TemiDelleEstensioni quadro={quadro} />
       <div className="guscio">
         <Laterale
           vista={vista}

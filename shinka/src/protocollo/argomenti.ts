@@ -23,4 +23,12 @@ export interface StatoArgomenti {
   archiviati: VoceArgomento[];
   /** L'indice dell'archivio dell'argomento aperto. */
   aperto?: IndiceArchivio;
+  /** Le chat parallele della Home (ADR 0052): ciascuna con il numero e l'argomento che tiene aperto. */
+  chat?: ChatDellaHome[];
+}
+
+/** Una chat parallela della Home, con l'argomento aperto in quel momento. */
+export interface ChatDellaHome {
+  numero: number;
+  idAperto: string;
 }

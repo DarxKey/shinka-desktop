@@ -27,6 +27,8 @@ export interface Attivita {
   conUscita?: boolean;
   /** L'attività che l'ha lanciata, se è un agente. */
   genitore?: string;
+  /** Per un comando: che cosa esegue, com'è stato scritto. */
+  comando?: string;
 }
 
 /** Quante attività finite si tengono, oltre a quelle in corso. */
@@ -59,6 +61,7 @@ export function leggiAttivita(valore: unknown): Attivita[] | undefined {
         ...testo("ultimoStrumento"),
         ...testo("riassunto"),
         ...testo("genitore"),
+        ...testo("comando"),
         ...numero("strumentiUsati"),
         ...numero("durataMs"),
         ...(campi.conUscita === true ? { conUscita: true } : {}),

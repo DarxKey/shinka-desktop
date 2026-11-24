@@ -32,6 +32,12 @@ export type AzioneInAmbiente =
   | { tipo: "modifica-file"; percorso: string; vecchio: string; nuovo: string; tutte?: boolean }
   /** Dice se la cartella collegata c'è, e il suo percorso vero. Solo per le cartelle collegate. */
   | { tipo: "controlla-cartella" }
+  /**
+   * Elimina la cartella intera: quella di un progetto che il proprietario elimina con i suoi file. Il
+   * nodo rifiuta le cartelle che non possono essere di un progetto (la radice, la cartella dell'utente
+   * e quelle che la contengono, quella di Shinka stessa).
+   */
+  | { tipo: "elimina-cartella" }
   /** Elenca i file della cartella dell'argomento, senza crearla se non c'è. */
   | { tipo: "elenca-file" }
   /**
@@ -121,6 +127,8 @@ export function leggiAzione(letta: unknown): AzioneInAmbiente | undefined {
       return { tipo: "elenca-file" };
     case "controlla-cartella":
       return { tipo: "controlla-cartella" };
+    case "elimina-cartella":
+      return { tipo: "elimina-cartella" };
     case "leggi-elaborato": {
       const percorso = campi.percorso;
       return percorsoDiElaboratoValido(percorso) ? { tipo: "leggi-elaborato", percorso } : undefined;

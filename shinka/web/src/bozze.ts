@@ -4,7 +4,6 @@
  * e intanto si può cambiare. Stanno nel browser, per conversazione.
  */
 
-import type { StatoConversazione } from "../../src/protocollo/impostazioni.ts";
 
 /** Un messaggio che aspetta il limite: il testo e quando partirà. */
 export interface MessaggioInCoda {
@@ -54,14 +53,5 @@ export function scriviInCoda(base: string, messaggio: MessaggioInCoda | undefine
   }
 }
 
-/**
- * Se il piano è al limite, quando si azzera: il più lontano tra i limiti esauriti. Undefined se
- * non c'è limite raggiunto, o se non si sa quando si azzera.
- */
-export function quandoRiparte(limiti: StatoConversazione["limiti"], adesso: Date = new Date()): string | undefined {
-  const esauriti = [limiti?.cinqueOre, limiti?.setteGiorni].filter(
-    (finestra) => finestra !== undefined && finestra.percento >= 100 && finestra.azzeraIl !== undefined && Date.parse(finestra.azzeraIl) > adesso.getTime(),
-  );
-  const momenti = esauriti.map((finestra) => finestra?.azzeraIl ?? "").sort();
-  return momenti.at(-1);
-}
+/** Se il piano è al limite, quando si azzera: sta nel protocollo, perché lo usano anche i lavori programmati. */
+export { quandoRiparte } from "../../src/protocollo/limiti.ts";

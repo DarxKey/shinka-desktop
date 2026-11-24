@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#14052e"/>
+      <stop offset="1" stop-color="#2d0a52"/>
+    </linearGradient>
+  </defs>
+  <!-- Per le misure piccole: lo stesso germoglio a facce, più grosso, senza griglia né glitch. -->
+  <rect width="512" height="512" fill="url(#fondo)"/>
+  <g transform="translate(256 256) scale(1.14) translate(-256 -258)">
+    <path d="M248 414 L242 338 L248 262" fill="none" stroke="#00f0ff" stroke-width="34" stroke-linecap="square"/>
+    <path d="M246 318 L190 312 L132 240 Z" fill="#00f0ff"/>
+    <path d="M246 318 L132 240 L200 246 Z" fill="#ff2bd6"/>
+    <path d="M232 270 L250 196 L302 138 L380 102 Z" fill="#00f0ff"/>
+    <path d="M232 270 L380 102 L366 176 L320 232 Z" fill="#ff2bd6"/>
+  </g>
+</svg>

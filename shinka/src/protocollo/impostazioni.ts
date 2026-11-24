@@ -43,6 +43,11 @@ export interface ImpostazioniConversazione {
   permessi: ModoPermessi;
   /** Lo stile delle risposte; se manca Claude scrive come fa di solito. */
   stile?: StileScelto;
+  /**
+   * Vero se un progetto può leggere e modificare file in tutto il computer come nella sua cartella:
+   * le stesse regole del modo dei permessi, senza chiedere solo perché il file è fuori.
+   */
+  tuttoIlPc?: true;
 }
 
 /**
@@ -55,6 +60,7 @@ export interface ModificaImpostazioni {
   impegno?: Impegno | null;
   permessi?: ModoPermessi;
   stile?: StileScelto | null;
+  tuttoIlPc?: boolean | null;
 }
 
 /** La modifica come la manda l'interfaccia: lo stile per identificativo. */
@@ -68,12 +74,14 @@ export function applicaModifica(
   const modello = modifica.modello === undefined ? attuali.modello : (modifica.modello ?? undefined);
   const impegno = modifica.impegno === undefined ? attuali.impegno : (modifica.impegno ?? undefined);
   const stile = modifica.stile === undefined ? attuali.stile : (modifica.stile ?? undefined);
+  const tuttoIlPc = modifica.tuttoIlPc === undefined ? attuali.tuttoIlPc === true : modifica.tuttoIlPc === true;
   return {
     ...(motore === undefined ? {} : { motore }),
     ...(modello === undefined || modello.trim() === "" ? {} : { modello: modello.trim() }),
     ...(impegno === undefined ? {} : { impegno }),
     permessi: modifica.permessi ?? attuali.permessi,
     ...(stile === undefined ? {} : { stile }),
+    ...(tuttoIlPc ? { tuttoIlPc: true as const } : {}),
   };
 }
 
@@ -92,6 +100,7 @@ export function leggiImpostazioni(valore: unknown): ImpostazioniConversazione | 
     ...(impegno === undefined ? {} : { impegno }),
     permessi,
     ...(stile === undefined ? {} : { stile }),
+    ...(campi.tuttoIlPc === true ? { tuttoIlPc: true as const } : {}),
   };
 }
 

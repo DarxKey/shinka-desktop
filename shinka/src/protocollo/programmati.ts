@@ -66,6 +66,11 @@ export interface LavoroProgrammato {
   /** Presente mentre sta lavorando. */
   inCorso?: true;
   /**
+   * Presente se ha trovato esaurito il limite del piano, prima di partire o a metà: aspetta fin lì,
+   * quando il limite si azzera, e poi riparte da solo, una volta.
+   */
+  riprendeIl?: string;
+  /**
    * Per un lavoro che parte con un evento: l'indirizzo a cui mandarlo, con la sua chiave. Lo vede
    * solo il proprietario, nella pagina: alle conversazioni non viene detto.
    */

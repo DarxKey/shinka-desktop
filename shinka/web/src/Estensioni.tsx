@@ -8,7 +8,8 @@ import {
   type StatoEstensioni,
 } from "../../src/protocollo/estensioni.ts";
 import type { Ambiente, StatoAmbienti } from "../../src/protocollo/nodi.ts";
-import { accendiEstensione, decidiEstensione, guardaEstensioniDellAmbiente, rimuoviEstensione } from "./api.ts";
+import { accendiEstensione, accendiInterfaccia, impostaUscita, decidiEstensione, guardaEstensioniDellAmbiente, mettiInRete, rimuoviEstensione, togliInterfaccia } from "./api.ts";
+import { useQuadroCorrente } from "./Quadro.tsx";
 import { useSolaLettura } from "./ContestoChat.ts";
 import { momentoInBreve } from "./descrivi.ts";
 import type { Elemento } from "./stato.ts";
@@ -211,6 +212,7 @@ export function PaginaEstensioni({ menu, stato, ambienti }: ProprietaPaginaEsten
                   ))}
                 </ul>
               )}
+              <EstensioniDellInterfaccia />
               <h2 className="titolo-sezione">Già negli ambienti</h2>
               <p className="tenue">
                 Ciò che hai installato per conto tuo in un ambiente, fuori da Shinka. I progetti di quell'ambiente lo usano
@@ -253,6 +255,7 @@ function VistaEstensione({ estensione, ambienti }: { estensione: Estensione; amb
       </div>
       <p>{estensione.descrizione}</p>
       <Definizione estensione={estensione} />
+      {estensione.definizione.tipo === "modello-locale" && <RispostaMassima id={estensione.id} uscita={estensione.definizione.uscita} contesto={estensione.definizione.contesto} />}
       {estensione.contenuto !== undefined && (
         <details className="dettaglio-installazione">
           <summary>Che cosa contiene</summary>
@@ -335,7 +338,10 @@ function InAmbiente({ estensione, ambiente }: { estensione: Estensione; ambiente
       </div>
       {dove !== undefined && dove.strumenti.length > 0 && (
         <details className="strumenti-estensione">
-          <summary>{quantiStrumenti(dove.strumenti)}</summary>
+          <summary>
+            {quantiStrumenti(dove.strumenti)}
+            {dove.token !== undefined && <span className="tenue"> · circa {dove.token.toLocaleString("it-IT")} token nel contesto, se caricati tutti</span>}
+          </summary>
           <p>
             {dove.strumenti.map((strumento) => (
               <code key={strumento}>{strumento}</code>
@@ -344,12 +350,188 @@ function InAmbiente({ estensione, ambiente }: { estensione: Estensione; ambiente
         </details>
       )}
       {!accesa && !ambiente.attivo && <div className="tenue">L'ambiente è spento: si accende lì quando torna attivo.</div>}
+      {accesa && !ambiente.delCentro && estensione.definizione.tipo === "modello-locale" && (
+        <ModelloInRete estensione={estensione} ambiente={ambiente} indirizzo={dove?.inRete?.indirizzo} porta={estensione.definizione.porta} />
+      )}
       {nota !== undefined && (
         <p className="errore" role="alert">
           {nota}
         </p>
       )}
     </li>
+  );
+}
+
+/**
+ * La risposta massima di un modello locale: Claude Code tiene da parte per la compattazione la
+ * risposta massima più 13.000 token. Con un contesto piccolo, abbassarla lascia più spazio al lavoro.
+ */
+function RispostaMassima({ id, uscita, contesto }: { id: string; uscita: number; contesto: number }): ReactNode {
+  const [scritta, setScritta] = useState(String(uscita));
+  const [inCorso, setInCorso] = useState(false);
+  const [errore, setErrore] = useState<string>();
+  const numero = Number(scritta);
+  const valida = Number.isInteger(numero) && numero >= 1024 && numero <= Math.floor(contesto / 2);
+  return (
+    <div className="risposta-massima">
+      <label>
+        <span className="tenue">Risposta massima, ragionamento compreso (token)</span>
+        <input type="number" min={1024} max={Math.floor(contesto / 2)} step={1024} value={scritta} onChange={(evento) => setScritta(evento.target.value)} />
+      </label>
+      <button
+        type="button"
+        className="discreto piccolo"
+        disabled={inCorso || !valida || numero === uscita}
+        onClick={() => {
+          setInCorso(true);
+          setErrore(undefined);
+          impostaUscita(id, numero)
+            .catch((causa: unknown) => setErrore(inParole(causa, "Non è riuscito.")))
+            .finally(() => setInCorso(false));
+        }}
+      >
+        Salva
+      </button>
+      <p className="tenue">
+        Riserva per la compattazione: {((valida ? numero : uscita) + 13_000).toLocaleString("it-IT")} token su {contesto.toLocaleString("it-IT")}, cioè la risposta massima più
+        13.000. Vale dalle conversazioni che partono dopo.
+      </p>
+      {errore !== undefined && (
+        <p className="errore" role="alert">
+          {errore}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Un modello locale in rete (ADR 0053): lo usano anche la Home e i progetti delle altre macchine,
+ * raggiungendolo all'indirizzo di questo ambiente con una chiave che Shinka tiene per sé.
+ */
+function ModelloInRete({ estensione, ambiente, indirizzo, porta }: { estensione: Estensione; ambiente: Ambiente; indirizzo: string | undefined; porta: number }): ReactNode {
+  const [scritto, setScritto] = useState(indirizzo ?? ambiente.indirizzoDelNodo ?? "");
+  const [inCorso, setInCorso] = useState(false);
+  const [errore, setErrore] = useState<string>();
+  const inRete = indirizzo !== undefined;
+  // Su Windows il firewall va aperto una volta; se si conosce l'indirizzo del centro, solo per lui.
+  const centro = /^https?:\/\/(\d{1,3}(?:\.\d{1,3}){3})(?::\d+)?/.exec(ambiente.indirizzoDelCentro ?? "")?.[1];
+  const regola =
+    `New-NetFirewallRule -DisplayName "Shinka ${estensione.nome}" -Direction Inbound -Protocol TCP -LocalPort ${porta} -Action Allow` +
+    (centro === undefined ? "" : ` -RemoteAddress ${centro}`);
+
+  async function imposta(valore: string | null): Promise<void> {
+    setInCorso(true);
+    setErrore(undefined);
+    try {
+      await mettiInRete(estensione.id, ambiente.id, valore);
+    } catch (causa) {
+      setErrore(inParole(causa, "Non è riuscito."));
+    } finally {
+      setInCorso(false);
+    }
+  }
+
+  return (
+    <div className="modello-in-rete">
+      <label className="scelta-in-rete">
+        <input
+          type="checkbox"
+          checked={inRete}
+          disabled={inCorso || (!inRete && scritto.trim() === "")}
+          onChange={(evento) => void imposta(evento.target.checked ? scritto.trim() : null)}
+        />
+        In rete: lo usano anche la Home e i progetti delle altre macchine
+      </label>
+      <label className="indirizzo-in-rete">
+        <span className="tenue">Indirizzo di «{ambiente.nome}» visto dal centro</span>
+        <input value={scritto} disabled={inRete || inCorso} placeholder="192.168.1.20" onChange={(evento) => setScritto(evento.target.value)} />
+      </label>
+      {inRete && (
+        <p className="tenue">
+          Il server ascolta sulla porta {porta} anche dalla rete di casa e vuole una chiave, che Shinka tiene per sé: chi non la conosce non lo usa.
+          {/windows/i.test(ambiente.sistema) && (
+            <>
+              {" "}Su Windows il firewall lo lascia passare dopo una regola, da creare una volta in un PowerShell da amministratore:
+              <code className="comando-firewall">{regola}</code>
+            </>
+          )}
+        </p>
+      )}
+      {errore !== undefined && (
+        <p className="errore" role="alert">
+          {errore}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Le estensioni dell'interfaccia (ADR 0054): temi, pagine e pulsanti scritti da Claude. Qui si
+ * spengono, si riaccendono e si tolgono; per aggiungerne o cambiarne una si chiede alla Home.
+ */
+function EstensioniDellInterfaccia(): ReactNode {
+  const quadro = useQuadroCorrente();
+  const [inCorso, setInCorso] = useState<string>();
+  const [errore, setErrore] = useState<string>();
+  const elenco = quadro.interfaccia?.estensioni ?? [];
+
+  async function fai(id: string, azione: () => Promise<void>): Promise<void> {
+    setInCorso(id);
+    setErrore(undefined);
+    try {
+      await azione();
+    } catch (causa) {
+      setErrore(inParole(causa, "Non è riuscito."));
+    } finally {
+      setInCorso(undefined);
+    }
+  }
+
+  return (
+    <>
+      <h2 className="titolo-sezione">Dell'interfaccia</h2>
+      <p className="tenue">
+        Temi, pagine e pulsanti che cambiano l'aspetto di Shinka o le aggiungono funzioni. Li scrive la Home quando glieli chiedi, e
+        entrano solo se confermi la sua scheda. Se un tema rompe l'interfaccia, aprila con «?senza-estensioni» nell'indirizzo.
+      </p>
+      {elenco.length === 0 ? (
+        <p className="tenue vuota">Ancora nessuna.</p>
+      ) : (
+        <ul className="credenziali-vault">
+          {elenco.map((una) => (
+            <li key={una.id} className="estensione-interfaccia">
+              <div className="riga-ambiente">
+                <span className="nome">{una.nome}</span>
+                <span className="stato">{una.accesa ? "accesa" : "spenta"}</span>
+                <button type="button" className="discreto piccolo" disabled={inCorso !== undefined} onClick={() => void fai(una.id, () => accendiInterfaccia(una.id, !una.accesa))}>
+                  {una.accesa ? "Spegni" : "Accendi"}
+                </button>
+                <button type="button" className="discreto piccolo" disabled={inCorso !== undefined} onClick={() => void fai(una.id, () => togliInterfaccia(una.id))}>
+                  Togli
+                </button>
+              </div>
+              <div>{una.descrizione}</div>
+              <div className="tenue">
+                {[
+                  una.tema === undefined ? "" : "un tema",
+                  ...una.pagine.map((pagina) => `la pagina «${pagina.titolo}» ${pagina.dove === "menu" ? "nel menu" : "nel pannello dei progetti"}`),
+                  ...una.pulsanti.map((pulsante) => `il pulsante «${pulsante.etichetta}»`),
+                ]
+                  .filter((parte) => parte !== "")
+                  .join(", ")}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {errore !== undefined && (
+        <p className="errore" role="alert">
+          {errore}
+        </p>
+      )}
+    </>
   );
 }
 

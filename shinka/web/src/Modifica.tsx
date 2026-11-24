@@ -8,7 +8,7 @@
 
 import { useEffect, useId, useState, type ReactNode } from "react";
 import type { AnteprimaRiavvolgimento } from "../../src/protocollo/eventi.ts";
-import { BASE_HOME, leggiRiavvolgimento, mandaInUnRamo, modificaMessaggio } from "./api.ts";
+import { eDellaHome, leggiRiavvolgimento, mandaInUnRamo, modificaMessaggio } from "./api.ts";
 import { useBaseDellaChat } from "./ContestoChat.ts";
 
 /** Il nome di un file, con la cartella che lo precede se aiuta a riconoscerlo. */
@@ -32,7 +32,7 @@ export function ModificaMessaggio({
   const [anteprima, setAnteprima] = useState<AnteprimaRiavvolgimento>();
   const [file, setFile] = useState(false);
   const [invio, setInvio] = useState<"qui" | "ramo">();
-  const nellaHome = base === BASE_HOME;
+  const nellaHome = eDellaHome(base);
   const [errore, setErrore] = useState<string>();
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export function ModificaMessaggio({
     setInvio(dove);
     setErrore(undefined);
     try {
-      if (dove === "ramo") await mandaInUnRamo(idMessaggio, testo);
+      if (dove === "ramo") await mandaInUnRamo(base, idMessaggio, testo);
       else await modificaMessaggio(base, idMessaggio, testo, file);
       allaChiusura();
     } catch (causa) {

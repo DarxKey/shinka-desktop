@@ -445,3 +445,110 @@
   font-size: var(--t-piccolo);
   white-space: pre;
 }
+
+/*
+ * L'avvio del logo: a tutto schermo sopra l'interfaccia, che intanto si prepara sotto. La luce corre
+ * lungo il contorno del germoglio, le facce si accendono, poi tutto svanisce allargandosi un poco.
+ */
+.avvio-del-logo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: radial-gradient(circle at 50% 46%, #2a0b4d 0%, #12052a 45%, #06021a 100%);
+  cursor: pointer;
+}
+
+.avvio-del-logo::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 43, 214, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 43, 214, 0.08) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.avvio-del-logo.attesa {
+  visibility: hidden;
+}
+
+.avvio-del-logo.dissolvenza {
+  animation: avvio-svanisce var(--dissolvenza) ease-in forwards;
+  pointer-events: none;
+}
+
+.logo-avvio {
+  position: relative;
+  width: min(42vmin, 340px);
+  height: auto;
+  overflow: visible;
+}
+
+.logo-avvio .facce {
+  opacity: 0;
+  animation: avvio-facce 1.4s ease-out 0.5s forwards;
+}
+
+.logo-avvio .luce {
+  stroke-dasharray: 22 78;
+  stroke-dashoffset: 100;
+  animation: avvio-corre var(--giro) linear infinite;
+}
+
+.nome-avvio {
+  position: relative;
+  font: 600 clamp(14px, 2.4vmin, 22px) / 1 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.6em;
+  margin-right: -0.6em;
+  color: #7df9ff;
+  text-shadow: 0 0 8px #00f0ff, 0 0 18px #ff2bd6;
+  opacity: 0;
+  animation: avvio-facce 1s ease-out 0.9s forwards;
+}
+
+@keyframes avvio-corre {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes avvio-facce {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes avvio-svanisce {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo-avvio .facce,
+  .nome-avvio {
+    opacity: 1;
+    animation: none;
+  }
+
+  .logo-avvio .luce {
+    animation: none;
+    stroke-dasharray: none;
+  }
+
+  .avvio-del-logo.dissolvenza {
+    animation-name: avvio-svanisce-fermo;
+  }
+}
+
+@keyframes avvio-svanisce-fermo {
+  to {
+    opacity: 0;
+  }
+}
