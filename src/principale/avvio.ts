@@ -3,7 +3,8 @@
  * collegamento con il centro tenuto qui nel processo principale (ADR 0002), i terminali locali.
  */
 
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, safeStorage, session, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
+import { vociDelTastoDestro } from "./tasto-destro.ts";
+import { app, BrowserWindow, clipboard, ipcMain, Menu, nativeImage, nativeTheme, net, protocol, safeStorage, session, shell, Tray, type IpcMainEvent, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { hostname } from "node:os";
@@ -220,6 +221,10 @@ function ascoltaLaPagina(): void {
   ipcMain.handle(CANALI.avvioConWindows, (evento, si: unknown) => {
     if (dallaPagina(evento) && typeof si === "boolean") impostaLAvvioConWindows(si);
   });
+  // Il tasto destro in un terminale incolla: lo fa la finestra, nel punto in cui si scrive.
+  ipcMain.on(CANALI.incolla, (evento) => {
+    if (dallaPagina(evento)) evento.sender.paste();
+  });
   ipcMain.on(CANALI.aggiorna, (evento) => {
     if (dallaPagina(evento)) aggiornamenti.riavviaPerAggiornare();
   });
@@ -372,6 +377,14 @@ function apriLaFinestra(nascosta = false): void {
   });
   nuova.on("closed", () => {
     if (finestra === nuova) finestra = undefined;
+  });
+  // Il tasto destro: taglia, copia e incolla, come in un browser. Nei terminali lo usa la pagina.
+  nuova.webContents.on("context-menu", (_evento, dove) => {
+    const voci = vociDelTastoDestro(dove, {
+      copia: (testo) => clipboard.writeText(testo),
+      sostituisci: (parola) => nuova.webContents.replaceMisspelling(parola),
+    });
+    if (voci.length > 0) Menu.buildFromTemplate(voci).popup({ window: nuova });
   });
   // I tasti laterali del mouse vanno avanti e indietro, come in un browser.
   nuova.on("app-command", (_evento, comando) => {

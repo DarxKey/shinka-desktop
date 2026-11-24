@@ -52,6 +52,7 @@ const ponte: Ponte = {
   chiudiLaFinestra: () => ipcRenderer.send(CANALI.chiudiFinestra),
   avviaConWindows: (si) => ipcRenderer.invoke(CANALI.avvioConWindows, si) as Promise<void>,
   riavviaPerAggiornare: () => ipcRenderer.send(CANALI.aggiorna),
+  incolla: () => ipcRenderer.send(CANALI.incolla),
   terminali: {
     shell: () => ipcRenderer.invoke(CANALI.shell) as Promise<ShellDisponibile[]>,
     apri: (richiesta, alDato, allaFine) => {

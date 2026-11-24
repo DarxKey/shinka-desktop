@@ -397,6 +397,19 @@ function RiquadroTerminale(proprieta: {
     });
     const fuoco = (): void => ultime.current.alFuoco();
     nuovo.textarea?.addEventListener("focus", fuoco);
+    // Il tasto destro come in PowerShell: con una selezione la copia, senza incolla.
+    const tastoDestro = (evento: MouseEvent): void => {
+      evento.preventDefault();
+      if (nuovo.hasSelection()) {
+        void navigator.clipboard.writeText(nuovo.getSelection()).catch(() => {});
+        nuovo.clearSelection();
+        return;
+      }
+      if (finito) return;
+      nuovo.focus();
+      ponte.incolla();
+    };
+    contenitore.addEventListener("contextmenu", tastoDestro);
 
     let misure = `${nuovo.cols}x${nuovo.rows}`;
     const osserva = new ResizeObserver(() => {
@@ -418,6 +431,7 @@ function RiquadroTerminale(proprieta: {
       smontato = true;
       osserva.disconnect();
       nuovo.textarea?.removeEventListener("focus", fuoco);
+      contenitore.removeEventListener("contextmenu", tastoDestro);
       if (!finito) ponte.terminali.chiudi(id);
       nuovo.dispose();
       terminale.current = undefined;

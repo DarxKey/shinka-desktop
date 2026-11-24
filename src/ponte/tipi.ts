@@ -78,6 +78,8 @@ export interface Ponte {
   avviaConWindows(si: boolean): Promise<void>;
   /** Installa la versione nuova già scaricata e riapre l'app: i terminali di questo PC si chiudono. */
   riavviaPerAggiornare(): void;
+  /** Incolla gli appunti nel punto in cui si scrive: il terminale lo usa per il tasto destro. */
+  incolla(): void;
   terminali: {
     shell(): Promise<ShellDisponibile[]>;
     /** Apre una shell su questo PC, nella cartella del progetto se vive qui. */
@@ -112,6 +114,7 @@ export const CANALI = {
   chiudiFinestra: "shinka:chiudi-finestra",
   avvioConWindows: "shinka:avvio-con-windows",
   aggiorna: "shinka:aggiorna",
+  incolla: "shinka:incolla",
 } as const;
 
 /** Il nome con cui il ponte compare nella pagina. */
