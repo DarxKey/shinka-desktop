@@ -4,6 +4,7 @@
  * legge il nodo dell'ambiente a ogni richiesta; la storia dei grafici sta solo in questa pagina.
  */
 
+import { Parte, PostoEstensioni } from "./Interfaccia.tsx";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { CampioneRisorse, ContenitoreDocker, DettaglioDellAmbiente, DockerLetto, ProcessoAttivo, ProcessoDiShinka } from "../../src/protocollo/risorse.ts";
 import type { Ambiente } from "../../src/protocollo/nodi.ts";
@@ -99,10 +100,17 @@ export function PaginaAmbiente({ menu, ambiente, caricato }: { menu: ReactNode; 
                 </p>
               )}
               {risorse === undefined && motivo === undefined && <p className="tenue">Leggo le risorse…</p>}
-              {risorse !== undefined && <Risorse risorse={risorse} storia={storia} versione={versione} />}
+              {risorse !== undefined && (
+                <Parte nome="ambiente-risorse" qui={{ tipo: "ambiente", id: ambiente.id, nome: ambiente.nome }}>
+                  <div data-parte="ambiente-risorse">
+                    <Risorse risorse={risorse} storia={storia} versione={versione} />
+                  </div>
+                </Parte>
+              )}
               {risorse?.processiDiShinka !== undefined && id !== undefined && <ProcessiDiShinka idAmbiente={id} processi={risorse.processiDiShinka} />}
             </>
           )}
+          {ambiente !== undefined && <PostoEstensioni posto="ambiente" qui={{ tipo: "ambiente", id: ambiente.id, nome: ambiente.nome }} />}
           <p className="tenue">
             <a href={frammentoDi({ tipo: "home" })}>Torna alla Home</a>
           </p>
@@ -144,6 +152,15 @@ function Risorse({ risorse, storia, versione }: { risorse: Risorse; storia: Camp
             pieno={(campione.disco.usato / campione.disco.totale) * 100}
           />
         )}
+        {(campione.gpu ?? []).map((scheda, posto) => (
+          <Riquadro
+            key={`gpu-${posto}`}
+            nome={scheda.nome}
+            valore={`${Math.round(scheda.uso)}%`}
+            nota={`${pesoInBreve(scheda.memoria.usata)} di ${pesoInBreve(scheda.memoria.totale)}${scheda.temperatura === undefined ? "" : ` · ${Math.round(scheda.temperatura)} °C`}`}
+            pieno={scheda.uso}
+          />
+        ))}
         {campione.carico !== undefined && <Riquadro nome="Carico (1 minuto)" valore={campione.carico.toLocaleString("it-IT", { maximumFractionDigits: 2 })} nota={`su ${sistema.nuclei} nuclei`} />}
         {campione.contenitore !== undefined && (
           <Riquadro

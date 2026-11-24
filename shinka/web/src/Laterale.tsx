@@ -1,4 +1,14 @@
-import { pagineDelleEstensioni } from "./Interfaccia.tsx";
+import { BarraSinistra, pagineDelleEstensioni, useEtichette } from "./Interfaccia.tsx";
+
+/** Le etichette che le pagine delle estensioni mettono accanto a un progetto o a un argomento (ADR 0057). */
+function EtichetteEstensioni({ id }: { id: string }): ReactNode {
+  const etichette = useEtichette(id);
+  return etichette.map((una) => (
+    <span key={una.estensione} className="etichetta-estensione" title={`Dall'estensione «${una.estensione}»`}>
+      {una.testo}
+    </span>
+  ));
+}
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { VoceProgetto } from "../../src/protocollo/progetti.ts";
 import { eliminaProgetto, fissaProgetto, rinominaProgetto } from "./api.ts";
@@ -101,7 +111,10 @@ export function Laterale(proprieta: ProprietaLaterale): ReactNode {
                   title={argomento.riassunto === "" ? undefined : argomento.riassunto}
                   onClick={allaScelta}
                 >
-                  <span className="nome">{argomento.titolo}</span>
+                  <span className="nome">
+                    {argomento.titolo}
+                    <EtichetteEstensioni id={argomento.id} />
+                  </span>
                   <span className="dettaglio">{giornoInBreve(argomento.archiviatoIl)}</span>
                 </a>
               );
@@ -158,6 +171,7 @@ export function Laterale(proprieta: ProprietaLaterale): ReactNode {
         ))}
       </div>
 
+      <BarraSinistra />
       <MenuAspetto />
       <div className="piede">
         <div className="piede-destra">
@@ -375,6 +389,7 @@ function VoceProgettoLaterale({ progetto, attuale, allaScelta }: { progetto: Voc
           <span className="nome">
             {progetto.nome}
             {progetto.diShinka === true && <span className="etichetta-shinka">questa Shinka</span>}
+            <EtichetteEstensioni id={progetto.id} />
           </span>
           <span className="dettaglio">
             <span className="ambiente">{progetto.nomeAmbiente}</span>

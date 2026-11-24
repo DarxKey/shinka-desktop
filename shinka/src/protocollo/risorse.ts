@@ -18,6 +18,32 @@ export interface CampioneRisorse {
   disco?: { usato: number; totale: number };
   /** Se il nodo gira in un container con dei limiti: quanta memoria usa il container, e il suo tetto. */
   contenitore?: { memoria: number; limiteMemoria?: number; limiteCpu?: number };
+  /** Le schede video NVIDIA, dove il nodo le legge con nvidia-smi (ADR 0057): uso da 0 a 100, memoria in byte, temperatura in gradi. */
+  gpu?: Gpu[];
+}
+
+export interface Gpu {
+  nome: string;
+  uso: number;
+  memoria: { usata: number; totale: number };
+  temperatura?: number;
+}
+
+/** Legge l'uscita di `nvidia-smi --query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader,nounits`. */
+export function gpuDa(uscita: string): Gpu[] {
+  return uscita
+    .split(/\r?\n/)
+    .map((riga) => riga.split(",").map((pezzo) => pezzo.trim()))
+    .flatMap(([nome, uso, usata, totale, temperatura]) => {
+      const numero = (testo: string | undefined): number | undefined => (testo === undefined || testo === "" || Number.isNaN(Number(testo)) ? undefined : Number(testo));
+      const usoLetto = numero(uso);
+      const usataMiB = numero(usata);
+      const totaleMiB = numero(totale);
+      if (nome === undefined || nome === "" || usoLetto === undefined || usataMiB === undefined || totaleMiB === undefined) return [];
+      const gradi = numero(temperatura);
+      return [{ nome: nome.slice(0, 80), uso: Math.min(Math.max(usoLetto, 0), 100), memoria: { usata: usataMiB * 1024 * 1024, totale: totaleMiB * 1024 * 1024 }, ...(gradi === undefined ? {} : { temperatura: gradi }) }];
+    })
+    .slice(0, 8);
 }
 
 export interface ProcessoAttivo {
@@ -216,6 +242,16 @@ export function leggiRisorse(valore: unknown): RisorseDellAmbiente | undefined {
   const disco = leggiCoppia(campione.disco, "usato", "totale") as { usato: number; totale: number } | undefined;
   const contenitore = (typeof campione.contenitore === "object" && campione.contenitore !== null ? campione.contenitore : undefined) as Record<string, unknown> | undefined;
   const memoriaContenitore = numero(contenitore?.memoria);
+  const gpu = Array.isArray(campione.gpu)
+    ? (campione.gpu as unknown[]).slice(0, 8).flatMap((voce) => {
+        const una = (typeof voce === "object" && voce !== null ? voce : {}) as Record<string, unknown>;
+        const uso = numero(una.uso, 0, 100);
+        const memoriaGpu = leggiCoppia(una.memoria, "usata", "totale") as { usata: number; totale: number } | undefined;
+        if (typeof una.nome !== "string" || uso === undefined || memoriaGpu === undefined) return [];
+        const temperatura = numero(una.temperatura, 0, 200);
+        return [{ nome: una.nome.slice(0, 80), uso, memoria: memoriaGpu, ...(temperatura === undefined ? {} : { temperatura }) }];
+      })
+    : [];
   const processi = Array.isArray(campi.processi) ? (campi.processi as unknown[]).slice(0, PROCESSI_MOSTRATI) : [];
   return {
     sistema: {
@@ -231,6 +267,7 @@ export function leggiRisorse(valore: unknown): RisorseDellAmbiente | undefined {
       memoria,
       ...(carico === undefined ? {} : { carico }),
       ...(disco === undefined ? {} : { disco }),
+      ...(gpu.length === 0 ? {} : { gpu }),
       ...(memoriaContenitore === undefined
         ? {}
         : {

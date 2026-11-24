@@ -5,6 +5,7 @@
  * e la scelta di accettare solo quelli.
  */
 
+import { PostoEstensioni } from "./Interfaccia.tsx";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
   accessoInParole,
@@ -64,6 +65,7 @@ export function PaginaSicurezza({ menu, ambienti }: { menu: ReactNode; ambienti:
       </header>
       <div className="corpo-pagina">
         <div className="colonna-pagina pagina-sicurezza">
+          <PostoEstensioni posto="sicurezza" qui={{ tipo: "sicurezza" }} />
           {errore !== undefined && (
             <p className="errore" role="alert">
               {errore}

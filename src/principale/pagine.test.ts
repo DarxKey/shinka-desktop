@@ -94,6 +94,12 @@ test("le API vanno al centro con il gettone aggiunto qui, e senza ciò che racco
   assert.equal(vista.corpo, '{"testo":"ciao"}');
 });
 
+test("una richiesta fatta per un'estensione dell'interfaccia porta al centro il suo nome (ADR 0057 di Shinka)", async () => {
+  const { chiedi, viste } = prova();
+  await chiedi("/api/ambienti/centro/risorse", { headers: { "X-Shinka-Estensione": "barra-risorse" } });
+  assert.equal(viste[0]?.intestazioni.get("x-shinka-estensione"), "barra-risorse");
+});
+
 test("i biscotti del centro non arrivano alla pagina, e il gettone nemmeno", async () => {
   const { chiedi } = prova(() => new Response("{}", { status: 201, headers: { "Content-Type": "application/json", "Set-Cookie": "sessione=abc", "X-Altro": "resta" } }));
   const risposta = await chiedi("/api/uso");

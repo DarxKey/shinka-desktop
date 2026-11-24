@@ -3,7 +3,7 @@
  * Sono dati semplici, serializzabili in JSON: nessuna funzione, nessun riferimento all'SDK.
  */
 
-import type { PaginaDiEstensione, PulsanteDiEstensione } from "./interfaccia.ts";
+import type { ComandoDiEstensione, PaginaDiEstensione, ParteCambiata, PulsanteDiEstensione } from "./interfaccia.ts";
 import type { LimiteRaggiunto } from "./limiti.ts";
 import type { Allegato, Immagine } from "./allegati.ts";
 import type { EstensioniDegliAmbienti, SkillDiPartenza } from "./avvio-progetto.ts";
@@ -354,6 +354,10 @@ export type EventoConversazione =
       righeTema?: number;
       pagine: PaginaDiEstensione[];
       pulsanti: PulsanteDiEstensione[];
+      /** Le API che le pagine useranno (ADR 0057): mancano nelle proposte di prima. */
+      api?: string[];
+      comandi?: ComandoDiEstensione[];
+      parti?: ParteCambiata[];
     }
   /** Com'è finita la proposta di un'estensione dell'interfaccia. */
   | { tipo: "interfaccia-decisa"; idProposta: string; esito: "confermata" | "annullata" }

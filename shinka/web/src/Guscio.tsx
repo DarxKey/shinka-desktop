@@ -1,5 +1,6 @@
 import { ReteDiSicurezza } from "./ReteDiSicurezza.tsx";
-import { PaginaEstensione, TemiDelleEstensioni } from "./Interfaccia.tsx";
+import { BarraDestra, comandiDelleEstensioni, eseguiComando, Flottante, FornitoreQui, PaginaEstensione, PostoEstensioni, TemiDelleEstensioni, useScorciatoieEstensioni } from "./Interfaccia.tsx";
+import type { QuiPerLaPagina } from "../../src/protocollo/interfaccia.ts";
 import { PaginaPresentazione } from "./Presentazione.tsx";
 import { PaginaImpostazioni } from "./Impostazioni.tsx";
 import { PaginaCerca } from "./Cerca.tsx";
@@ -66,6 +67,19 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
   const quadro = useQuadro();
   const frammento = useFrammento();
   const vista = useMemo(() => vistaDa(frammento), [frammento]);
+  // Dove si trova il proprietario, per le estensioni dell'interfaccia: la Home, un progetto, un ambiente.
+  const nomeDelProgetto = vista.tipo === "progetto" ? quadro.progetti?.progetti.find((progetto) => progetto.id === vista.id)?.nome : undefined;
+  const nomeDellAmbiente = vista.tipo === "ambiente" ? quadro.ambienti?.ambienti.find((ambiente) => ambiente.id === vista.id)?.nome : undefined;
+  const qui = useMemo((): QuiPerLaPagina => {
+    if (vista.tipo === "home") return { tipo: "home" };
+    if (vista.tipo === "progetto") return { tipo: "progetto", id: vista.id, nome: nomeDelProgetto ?? "" };
+    if (vista.tipo === "ambiente") return { tipo: "ambiente", id: vista.id, nome: nomeDellAmbiente ?? "" };
+    if (vista.tipo === "sicurezza") return { tipo: "sicurezza" };
+    return { tipo: "pagina" };
+  }, [vista, nomeDelProgetto, nomeDellAmbiente]);
+  const quiAttuale = useRef(qui);
+  quiAttuale.current = qui;
+  useScorciatoieEstensioni(quadro, qui);
   const [lateraleAperta, setLateraleAperta] = useState(false);
   const [pannelloAperto, setPannelloAperto] = useState(false);
   const richieste = quadro.ambienti?.richieste.length ?? 0;
@@ -219,8 +233,16 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
         dettaglio: giornoInBreve(argomento.archiviatoIl),
         esegui: () => vaiA({ tipo: "argomento", id: argomento.id }),
       })),
+      // I comandi delle estensioni dell'interfaccia (ADR 0057).
+      ...comandiDelleEstensioni(quadro).map(({ estensione, comando }, posto) => ({
+        chiave: `estensione-${estensione.id}-${posto}`,
+        etichetta: comando.etichetta,
+        genere: "azione",
+        dettaglio: comando.tasti === undefined ? estensione.nome : `${estensione.nome} · ${comando.tasti}`,
+        esegui: () => eseguiComando(estensione, comando, quiAttuale.current),
+      })),
     ];
-  }, [quadro.progetti, quadro.argomenti]);
+  }, [quadro]);
 
   async function esciDaShinka(): Promise<void> {
     await esci().catch(() => {});
@@ -496,6 +518,7 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
 
   return (
     <FornitoreQuadro value={quadro}>
+      <FornitoreQui value={qui}>
       <TemiDelleEstensioni quadro={quadro} />
       <div className="guscio">
         <Laterale
@@ -518,11 +541,20 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
         {lateraleAperta && <div className="velo" onClick={() => setLateraleAperta(false)} />}
         <main className="principale">
           {paletteAperta && <Palette voci={vociPalette} allaChiusura={() => setPaletteAperta(false)} />}
-          {/* Una pagina che si rompe non porta via tutto: cambiando pagina si riprova. */}
-          <ReteDiSicurezza key={frammento}>{contenuto}</ReteDiSicurezza>
-          {pannelloAperto && <PannelloAmbienti stato={quadro.ambienti} allaChiusura={chiudiPannello} />}
+          <div className="principale-riga">
+            <div className="principale-contenuto">
+              {/* Una pagina che si rompe non porta via tutto: cambiando pagina si riprova. */}
+              <ReteDiSicurezza key={frammento}>{contenuto}</ReteDiSicurezza>
+              {pannelloAperto && <PannelloAmbienti stato={quadro.ambienti} allaChiusura={chiudiPannello} />}
+            </div>
+            {/* Le estensioni dell'interfaccia (ADR 0057): la barra a destra, la barra di stato, il pannello flottante. */}
+            <BarraDestra />
+          </div>
+          <PostoEstensioni posto="barra-di-stato" />
+          <Flottante />
         </main>
       </div>
+      </FornitoreQui>
     </FornitoreQuadro>
   );
 }

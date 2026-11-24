@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { pagineDelleEstensioni, RiquadroEstensione } from "./Interfaccia.tsx";
+import { pagineNelPosto, parteCambiata, RiquadroEstensione } from "./Interfaccia.tsx";
 import { useQuadroCorrente } from "./Quadro.tsx";
 import type { StatoAnteprima } from "../../src/protocollo/anteprima.ts";
 import { Anteprima, type RichiestaAnteprima } from "./Anteprima.tsx";
@@ -120,9 +120,16 @@ export function PannelloProgetto({
   const pannello = useRef<HTMLElement>(null);
   const quadro = useQuadroCorrente();
   // Le pagine delle estensioni dell'interfaccia che vanno nel pannello (ADR 0054), con dove sono aperte.
-  const dellEstensioni = pagineDelleEstensioni(quadro, "pannello");
   const nomeProgetto = quadro.progetti?.progetti.find((progetto) => progetto.id === idProgetto)?.nome ?? "";
   const qui = useMemo(() => ({ tipo: "progetto" as const, id: idProgetto, nome: nomeProgetto }), [idProgetto, nomeProgetto]);
+  const dellEstensioni = pagineNelPosto(quadro, "pannello", qui).map(({ estensione, pagina }) => ({ id: estensione.id, pagina: pagina.id, titolo: pagina.titolo }));
+  // Le schede di Shinka che un'estensione nasconde, o sostituisce con una sua pagina (ADR 0057).
+  const cambi = Object.fromEntries((Object.keys(NOMI_SCHEDE) as SchedaPropria[]).map((una) => [una, parteCambiata(quadro, `pannello-${una}`)])) as Record<SchedaPropria, ReturnType<typeof parteCambiata>>;
+  const sostituta = (una: SchedaPropria): ReactNode => {
+    const cambio = cambi[una];
+    if (cambio === undefined || "nascosta" in cambio) return undefined;
+    return <RiquadroEstensione id={cambio.pagina.estensione.id} pagina={cambio.pagina.pagina.id} titolo={cambio.pagina.pagina.titolo} qui={qui} posto="parte" />;
+  };
   // Una scheda nasce la prima volta che la si guarda, e poi resta: cambiare scheda non chiude il terminale.
   const [viste, setViste] = useState<ReadonlySet<Scheda>>(() => new Set([scheda]));
   useEffect(() => {
@@ -151,11 +158,13 @@ export function PannelloProgetto({
     <aside className="affianco" ref={pannello} aria-label="Modifiche, file, terminale e anteprima del progetto">
       <header className="affianco-testata">
         <div className="schede" role="tablist">
-          {(Object.keys(NOMI_SCHEDE) as SchedaPropria[]).map((una) => (
-            <button key={una} type="button" role="tab" aria-selected={scheda === una} className="scheda" onClick={() => alCambio(una)}>
-              {NOMI_SCHEDE[una]}
-            </button>
-          ))}
+          {(Object.keys(NOMI_SCHEDE) as SchedaPropria[])
+            .filter((una) => cambi[una] === undefined || !("nascosta" in (cambi[una] ?? {})))
+            .map((una) => (
+              <button key={una} type="button" role="tab" aria-selected={scheda === una} className="scheda" onClick={() => alCambio(una)}>
+                {NOMI_SCHEDE[una]}
+              </button>
+            ))}
           {dellEstensioni.map((una) => {
             const chiave: Scheda = `estensione:${una.id}/${una.pagina}`;
             return (
@@ -170,7 +179,8 @@ export function PannelloProgetto({
         </button>
       </header>
       <div className="affianco-corpo scorre" role="tabpanel" hidden={scheda !== "modifiche"}>
-        {viste.has("modifiche") && (
+        {viste.has("modifiche") && cambi.modifiche !== undefined && sostituta("modifiche")}
+        {viste.has("modifiche") && cambi.modifiche === undefined && (
           <PannelloModifiche
             idProgetto={idProgetto}
             turni={turni}
@@ -181,17 +191,19 @@ export function PannelloProgetto({
         )}
       </div>
       <div className="affianco-corpo scorre" role="tabpanel" hidden={scheda !== "file"}>
-        {viste.has("file") && <PannelloFile idProgetto={idProgetto} />}
+        {viste.has("file") && (cambi.file === undefined ? <PannelloFile idProgetto={idProgetto} /> : sostituta("file"))}
       </div>
       <div className="affianco-corpo" role="tabpanel" hidden={scheda !== "terminale"}>
-        {viste.has("terminale") && (
+        {viste.has("terminale") && cambi.terminale !== undefined && sostituta("terminale")}
+        {viste.has("terminale") && cambi.terminale === undefined && (
           <Suspense fallback={<div className="vuota-di-pannello">Apro il terminale…</div>}>
             <Terminale idProgetto={idProgetto} nomeAmbiente={nomeAmbiente} />
           </Suspense>
         )}
       </div>
       <div className="affianco-corpo" role="tabpanel" hidden={scheda !== "anteprima"}>
-        {viste.has("anteprima") && (
+        {viste.has("anteprima") && cambi.anteprima !== undefined && sostituta("anteprima")}
+        {viste.has("anteprima") && cambi.anteprima === undefined && (
           <Anteprima idProgetto={idProgetto} nomeAmbiente={nomeAmbiente} stato={anteprima} richiesta={richiesta} />
         )}
       </div>

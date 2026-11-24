@@ -213,9 +213,25 @@ pre {
 
 .principale {
   position: relative;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
   height: 100dvh;
   overflow: hidden;
+}
+
+/* Il contenuto e, se un'estensione la mette, la barra a destra; sotto, la barra di stato (ADR 0057). */
+.principale-riga {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.principale-contenuto {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
 }
 
 .laterale {
@@ -7093,5 +7109,174 @@ kbd {
 
   .testata .sottotitolo {
     display: none;
+  }
+}
+
+/* I posti delle estensioni dell'interfaccia (ADR 0057). */
+.posto-estensioni {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+
+.posto-estensioni > .riquadro-estensione {
+  height: auto;
+  background: transparent;
+}
+
+.posto-testata,
+.posto-barra-di-stato {
+  border-bottom: 1px solid var(--bordo);
+}
+
+.posto-barra-di-stato {
+  border-top: 1px solid var(--bordo);
+  border-bottom: 0;
+  background: var(--superficie);
+}
+
+.posto-sopra-scrittura,
+.posto-sotto-scrittura {
+  max-width: var(--lettura);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
+}
+
+.posto-ambiente,
+.posto-sicurezza {
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.posto-ambiente > .riquadro-estensione,
+.posto-sicurezza > .riquadro-estensione {
+  border: 1px solid var(--bordo);
+  border-radius: 10px;
+}
+
+.barra-destra {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  border-left: 1px solid var(--bordo);
+  background: var(--superficie);
+}
+
+.barra-destra.aperta {
+  width: 280px;
+}
+
+.apri-barra-destra {
+  align-self: flex-start;
+  margin: 8px 2px;
+  width: 22px;
+  padding: 2px 0;
+}
+
+.barra-destra-pagine {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.barra-destra-pagina {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 160px;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.barra-destra-pagina > .titolino {
+  padding: 8px 10px 0;
+}
+
+.barra-sinistra {
+  margin-top: 8px;
+  border-top: 1px solid var(--bordo);
+  padding-top: 6px;
+}
+
+.barra-sinistra > summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  color: var(--tenue);
+}
+
+.flottante {
+  position: absolute;
+  right: 16px;
+  bottom: 88px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.flottante > * {
+  pointer-events: auto;
+}
+
+.apri-flottante {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+}
+
+.flottante-pannello {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 32px));
+  height: min(480px, calc(100dvh - 160px));
+  border: 1px solid var(--bordo);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--superficie);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.22);
+}
+
+.flottante-testata {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--bordo);
+}
+
+.flottante-pannello > .riquadro-estensione {
+  flex: 1 1 auto;
+}
+
+.parte-sostituita {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  height: 100%;
+}
+
+.etichetta-estensione {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 0.6875rem;
+  background: var(--sfondo-tenue, rgb(0 0 0 / 0.06));
+  color: var(--tenue);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .barra-destra.aperta {
+    position: fixed;
+    inset: 0 0 0 auto;
+    z-index: 28;
+    width: min(86vw, 320px);
+    box-shadow: -6px 0 20px rgb(0 0 0 / 0.2);
   }
 }

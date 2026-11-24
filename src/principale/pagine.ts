@@ -48,7 +48,7 @@ const REGOLE_DELLA_PAGINA = [
 ].join("; ");
 
 /** Le intestazioni della pagina che arrivano al centro: le altre racconterebbero l'app, o non servono. */
-const DA_PORTARE = ["accept", "content-type", "range", "if-none-match", "if-modified-since"];
+const DA_PORTARE = ["accept", "content-type", "range", "if-none-match", "if-modified-since", "x-shinka-estensione"];
 /** Le intestazioni del centro che non tornano alla pagina: i biscotti, e ciò che vale solo per un tratto. */
 const DA_NON_RIPORTARE = new Set(["set-cookie", "content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "strict-transport-security"]);
 

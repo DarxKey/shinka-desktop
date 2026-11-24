@@ -15,7 +15,7 @@ import {
 import { flushSync } from "react-dom";
 import { FINE_STORIA, type EventoArchiviato, type EventoConversazione } from "../../src/protocollo/eventi.ts";
 import { difettoDegliAllegati, preparaAllegati } from "./allegati.ts";
-import { interrompi, inviaMessaggio, inviaPosizione, leggiStato, type RiferimentoElaborato } from "./api.ts";
+import { eDellaHome, interrompi, inviaMessaggio, inviaPosizione, leggiStato, type RiferimentoElaborato } from "./api.ts";
 import { SchedaSessione } from "./Sessione.tsx";
 
 /** Da quanto contesto occupato compare l'avviso, e poi di nuovo ogni dieci punti. */
@@ -32,7 +32,7 @@ import { Formattato, VistaVoce } from "./Elementi.tsx";
 import { raggruppa } from "./gruppi.ts";
 import { aCapo } from "./scrittura.ts";
 import { CoseDaFareInVista } from "./Piano.tsx";
-import { PulsantiDelleEstensioni } from "./Interfaccia.tsx";
+import { Parte, PostoEstensioni, PulsantiDelleEstensioni } from "./Interfaccia.tsx";
 import { leggiBozza, leggiInCoda, quandoRiparte, scriviBozza, scriviInCoda, type MessaggioInCoda } from "./bozze.ts";
 import { comandiPer, testoDelComando } from "./comandi.ts";
 import { NOMI_MOTORI, type ComandoDisponibile } from "../../src/protocollo/impostazioni.ts";
@@ -116,6 +116,8 @@ export interface ComandoChat {
 export function Chat(proprieta: ProprietaChat): ReactNode {
   const { base, titolo, sottotitolo, condizione, segnaposto, seVuota, bloccata, menu, comando } = proprieta;
   const solaLettura = proprieta.solaLettura === true;
+  // La chat affiancata non ha il menu: i posti delle estensioni stanno solo nella principale.
+  const principale = menu !== null && !solaLettura;
   const alApriAnteprima = useRef(proprieta.alApriAnteprima);
   const apriAnteprima = useCallback((porta: number, percorso: string) => alApriAnteprima.current?.(porta, percorso), []);
   const conAnteprima = proprieta.alApriAnteprima !== undefined && !solaLettura;
@@ -562,9 +564,12 @@ export function Chat(proprieta: ProprietaChat): ReactNode {
           )}
         </header>
         {proprieta.schede}
+        {/* I posti delle estensioni (ADR 0057): solo nella chat principale, non in quella affiancata. */}
+        {principale && <PostoEstensioni posto="testata" />}
 
         {stato.statoProgetto !== undefined && (
-          <details className="stato-progetto">
+          <Parte nome="stato-progetto">
+          <details className="stato-progetto" data-parte="stato-progetto">
             <summary>
               <span className="colonna">Stato del progetto</span>
             </summary>
@@ -574,11 +579,12 @@ export function Chat(proprieta: ProprietaChat): ReactNode {
               </div>
             </div>
           </details>
+          </Parte>
         )}
 
         <div className="conversazione" ref={lista} onScroll={alloScorrimento}>
           <div className="colonna">
-            {stato.elementi.length === 0 && collegata && <p className="vuota">{seVuota}</p>}
+            {stato.elementi.length === 0 && collegata && (eDellaHome(base) && principale ? <Parte nome="home-vuota"><p className="vuota" data-parte="home-vuota">{seVuota}</p></Parte> : <p className="vuota">{seVuota}</p>)}
             {nascoste > 0 && (
               <button type="button" className="precedenti" onClick={mostraPrecedenti}>
                 Mostra i precedenti ({nascoste})
@@ -598,6 +604,7 @@ export function Chat(proprieta: ProprietaChat): ReactNode {
             <CoseDaFareInVista scheda={coseInCorso} />
           </div>
         )}
+        {principale && <PostoEstensioni posto="sopra-scrittura" />}
         {!solaLettura && bloccata === undefined && <PulsantiDelleEstensioni base={base} occupata={occupata} />}
         <form className="scrittura" onSubmit={(evento) => void invia(evento)}>
           {/* Chi è salito a leggere torna all'ultimo messaggio con un tocco; la chat non lo tira giù da sola. */}
@@ -800,6 +807,7 @@ export function Chat(proprieta: ProprietaChat): ReactNode {
             {!solaLettura && <Controlli impostazioni={stato.impostazioni} stato={stato.stato} />}
           </div>
         </form>
+        {principale && <PostoEstensioni posto="sotto-scrittura" />}
       </div>
     </FornitoreChat>
   );

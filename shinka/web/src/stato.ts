@@ -3,7 +3,7 @@
  * È una funzione pura: dato lo stato e un evento, restituisce lo stato nuovo.
  */
 
-import type { PaginaDiEstensione, PulsanteDiEstensione } from "../../src/protocollo/interfaccia.ts";
+import { conICampiNuovi, type ComandoDiEstensione, type PaginaDiEstensione, type ParteCambiata, type PulsanteDiEstensione } from "../../src/protocollo/interfaccia.ts";
 import type { Immagine } from "../../src/protocollo/allegati.ts";
 import type { EstensioniDegliAmbienti, SkillDiPartenza } from "../../src/protocollo/avvio-progetto.ts";
 import type { ContenutoPlugin, DefinizioneEstensione } from "../../src/protocollo/estensioni.ts";
@@ -162,6 +162,10 @@ export type Elemento =
       righeTema?: number;
       pagine: PaginaDiEstensione[];
       pulsanti: PulsanteDiEstensione[];
+      /** Le API che le pagine useranno, i comandi e le parti nascoste o sostituite (ADR 0057). */
+      api: string[];
+      comandi: ComandoDiEstensione[];
+      parti: ParteCambiata[];
       esito?: "confermata" | "annullata";
     }
   /** Com'è finita un'installazione: il centro lo dice quando è ripartito. */
@@ -595,7 +599,8 @@ export function applica(stato: StatoChat, evento: EventoConversazione): StatoCha
         descrizione: evento.descrizione,
         ...(evento.sostituisce === true ? { sostituisce: true as const } : {}),
         ...(evento.righeTema === undefined ? {} : { righeTema: evento.righeTema }),
-        pagine: evento.pagine,
+        // Una proposta di prima dell'ADR 0057 ha i posti nel vecchio "dove", e nessuna API.
+        ...conICampiNuovi({ pagine: evento.pagine, ...(evento.api === undefined ? {} : { api: evento.api }), ...(evento.comandi === undefined ? {} : { comandi: evento.comandi }), ...(evento.parti === undefined ? {} : { parti: evento.parti }) }),
         pulsanti: evento.pulsanti,
       });
 

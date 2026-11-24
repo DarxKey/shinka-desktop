@@ -1,3 +1,4 @@
+import { conICampiNuovi } from "../../src/protocollo/interfaccia.ts";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   contenutoInRighe,
@@ -516,8 +517,10 @@ function EstensioniDellInterfaccia(): ReactNode {
               <div className="tenue">
                 {[
                   una.tema === undefined ? "" : "un tema",
-                  ...una.pagine.map((pagina) => `la pagina «${pagina.titolo}» ${pagina.dove === "menu" ? "nel menu" : "nel pannello dei progetti"}`),
+                  ...conICampiNuovi(una).pagine.map((pagina) => `la pagina «${pagina.titolo}»${pagina.posti.length === 0 ? "" : ` (${pagina.posti.map((voce) => voce.posto).join(", ")})`}`),
                   ...una.pulsanti.map((pulsante) => `il pulsante «${pulsante.etichetta}»`),
+                  ...(una.comandi ?? []).map((comando) => `il comando «${comando.etichetta}»`),
+                  (una.api ?? []).length === 0 ? "" : (una.api ?? []).includes("tutte") ? "tutte le API" : `API: ${(una.api ?? []).join(", ")}`,
                 ]
                   .filter((parte) => parte !== "")
                   .join(", ")}
