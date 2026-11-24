@@ -20,6 +20,8 @@ export interface Situazione {
   mancano: number;
   /** Vero se la sincronizzazione si è fermata per un errore: riparte al prossimo collegamento. */
   ferma: boolean;
+  /** Senza centro, il nome dell'ambiente di questo PC: i suoi progetti si mandano avanti dal suo nodo. */
+  offline?: string;
 }
 
 export interface StatoApp {

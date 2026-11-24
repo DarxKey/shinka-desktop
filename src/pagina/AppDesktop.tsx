@@ -48,6 +48,9 @@ export function AppDesktop(): ReactNode {
 
 function avvisoDi(situazione: Situazione | undefined): string | undefined {
   if (situazione === undefined) return undefined;
+  if (!situazione.collegato && situazione.offline !== undefined) {
+    return `Senza collegamento con il centro: i progetti di «${situazione.offline}» vanno avanti da questo PC, e il resto si legge. Quando il centro torna, riceve ciò che hai fatto.`;
+  }
   if (!situazione.collegato) return "Senza collegamento con il centro: puoi leggere ciò che è su questo PC.";
   if (situazione.mancano >= MANCANTI_DA_DIRE) return `Porto le conversazioni su questo PC: ne mancano ${situazione.mancano}.`;
   return undefined;

@@ -7,6 +7,11 @@
  * Verso la pagina i messaggi hanno gli stessi nomi di un flusso di eventi del browser: `open`
  * quando comincia una storia da capo, `message` per ogni evento, `storia` quando la storia è
  * finita e si può mostrare, `error` quando il collegamento con il centro cade.
+ *
+ * Senza centro, un progetto che vive su questo PC si segue dallo sportello del suo nodo (ADR 0011):
+ * la storia della cache, e sotto ciò che il nodo ha fatto offline, con i numeri che continuano
+ * quelli della cache. Quella parte non entra in cache: arriverà dal centro quando il nodo gliel'avrà
+ * consegnata.
  */
 
 import { FINE_STORIA, daRicordare, type EventoArchiviato, type IndiceArchivio } from "../../shinka/src/protocollo/eventi.ts";
@@ -22,6 +27,9 @@ const AZZERA = "azzera";
 const BASE_HOME = "/api/home";
 
 type Manda = (messaggi: MessaggioDelFlusso[]) => void;
+
+/** Lo sportello da cui seguire una conversazione adesso, se va seguita da lì invece che dal centro. */
+export type SportelloPer = (base: string) => Pick<Centro, "flusso"> | undefined;
 
 /** La conversazione di un percorso di base: un progetto, un argomento, o `undefined` per la Home e per ciò che non si riconosce. */
 export function chiaveDellaBase(base: string): Chiave | undefined {
@@ -55,12 +63,20 @@ export class Seguite {
   readonly #quadro: Pick<Quadro, "argomentoAperto">;
   readonly #attese: readonly number[];
   readonly #aperte = new Set<AbortController>();
+  readonly #seguite = new Set<Seguita>();
+  readonly #sportello: SportelloPer | undefined;
 
-  constructor(opzioni: { centro: Pick<Centro, "flusso">; cache: Cache; quadro: Pick<Quadro, "argomentoAperto">; attese?: readonly number[] }) {
+  constructor(opzioni: { centro: Pick<Centro, "flusso">; cache: Cache; quadro: Pick<Quadro, "argomentoAperto">; attese?: readonly number[]; sportello?: SportelloPer }) {
     this.#centro = opzioni.centro;
     this.#cache = opzioni.cache;
     this.#quadro = opzioni.quadro;
     this.#attese = opzioni.attese ?? ATTESE_MS;
+    this.#sportello = opzioni.sportello;
+  }
+
+  /** Il centro o lo sportello sono cambiati: ogni conversazione seguita dalla strada sbagliata passa all'altra. */
+  cambiaStrada(): void {
+    for (const seguita of this.#seguite) seguita.cambiaStrada();
   }
 
   /**
@@ -70,10 +86,16 @@ export class Seguite {
   segui(base: string, manda: Manda): () => void {
     const fine = new AbortController();
     this.#aperte.add(fine);
+    const seguita = new Seguita(this.#centro, this.#cache, this.#quadro, this.#attese, base, manda, fine.signal, this.#sportello);
+    this.#seguite.add(seguita);
     // Un errore qui non deve fermare l'app: la pagina resta con ciò che ha.
-    void new Seguita(this.#centro, this.#cache, this.#quadro, this.#attese, base, manda, fine.signal).vai().catch(() => {});
+    void seguita
+      .vai()
+      .catch(() => {})
+      .finally(() => this.#seguite.delete(seguita));
     return () => {
       this.#aperte.delete(fine);
+      this.#seguite.delete(seguita);
       fine.abort();
     };
   }
@@ -104,8 +126,25 @@ class Seguita {
   #risposte = 0;
   /** Dove sono in cache gli inizi delle azioni ancora in corso, per accorciarli quando si concludono. */
   readonly #azioniInCorso = new Map<string, number>();
+  readonly #sportello: SportelloPer | undefined;
+  /** Il collegamento di adesso, per chiuderlo quando la strada cambia. */
+  #interno: AbortController | undefined;
+  /** Vero se il collegamento di adesso è con lo sportello. */
+  #dalloSportello = false;
+  /** Vero se la pagina ha visto il lavoro offline: tornati al centro, la storia si rimanda da capo. */
+  #vistoOffline = false;
 
-  constructor(centro: Pick<Centro, "flusso">, cache: Cache, quadro: Pick<Quadro, "argomentoAperto">, attese: readonly number[], base: string, manda: Manda, segnale: AbortSignal) {
+  constructor(
+    centro: Pick<Centro, "flusso">,
+    cache: Cache,
+    quadro: Pick<Quadro, "argomentoAperto">,
+    attese: readonly number[],
+    base: string,
+    manda: Manda,
+    segnale: AbortSignal,
+    sportello?: SportelloPer,
+  ) {
+    this.#sportello = sportello;
     this.#centro = centro;
     this.#cache = cache;
     this.#quadro = quadro;
@@ -136,15 +175,23 @@ class Seguita {
 
     let tentativo = 0;
     while (!this.#segnale.aborted) {
+      const interno = new AbortController();
+      this.#interno = interno;
+      const segnale = AbortSignal.any([this.#segnale, interno.signal]);
+      const sportello = this.#sportello?.(this.#base);
+      this.#dalloSportello = sportello !== undefined;
       try {
         // Finché il centro non ha mai risposto la pagina ha solo la storia della cache: ciò che manca si aggiunge sotto.
         // Dopo, a ogni ricollegamento la storia si rimanda da capo.
         const rispostePrima = this.#risposte;
-        await this.#collegamento(mostrata && !this.#haRisposto).finally(() => {
-          if (this.#risposte > rispostePrima) tentativo = 0;
-        });
+        if (sportello !== undefined) await this.#collegamentoOffline(sportello, segnale);
+        else
+          await this.#collegamento(mostrata && !this.#haRisposto && !this.#vistoOffline, segnale).finally(() => {
+            if (this.#risposte > rispostePrima) tentativo = 0;
+          });
       } catch (errore) {
         if (this.#segnale.aborted) return;
+        if (interno.signal.aborted) continue;
         // Un dispositivo rifiutato o una conversazione che non c'è più non si riprovano.
         if (errore instanceof ErroreCentro && (errore.stato === 401 || errore.stato === 404)) {
           this.#spedisci([{ nome: CADUTO, dati: "" }]);
@@ -152,9 +199,55 @@ class Seguita {
         }
       }
       if (this.#segnale.aborted) return;
+      // La strada è cambiata: si prende subito l'altra, senza dire che è caduto.
+      if (interno.signal.aborted) continue;
       this.#spedisci([{ nome: CADUTO, dati: "" }]);
       await aspetta(this.#attese[Math.min(tentativo, this.#attese.length - 1)] ?? 30_000, this.#segnale);
       tentativo += 1;
+    }
+  }
+
+  /** Se adesso questa conversazione va seguita dall'altra strada, chiude il collegamento di adesso. */
+  cambiaStrada(): void {
+    if ((this.#sportello?.(this.#base) !== undefined) !== this.#dalloSportello) this.#interno?.abort();
+  }
+
+  /**
+   * Un collegamento allo sportello del nodo di questo PC: la storia della cache, poi quella offline
+   * con i numeri che continuano, poi ciò che arriva. Nulla di questo va in cache.
+   */
+  async #collegamentoOffline(sportello: Pick<Centro, "flusso">, segnale: AbortSignal): Promise<void> {
+    const chiave = this.#chiave;
+    const scarto = chiave === undefined ? 0 : (this.#cache.indice(chiave)?.ultimo ?? 0);
+    const rinumera = (evento: EventoArchiviato): string => JSON.stringify(evento.n > 0 ? { ...evento, n: evento.n + scarto } : evento);
+    let storia: string[] | undefined = [];
+    for await (const arrivato of sportello.flusso(`${this.#base}/eventi`, segnale)) {
+      if (arrivato.nome === AZZERA) {
+        storia = [];
+        continue;
+      }
+      if (arrivato.nome === FINE_STORIA) {
+        if (storia === undefined) continue;
+        const indice = this.#indiceDa(arrivato.dati);
+        const fine = { ultimo: scarto + (indice?.ultimo ?? 0), versione: `offline-${indice?.versione ?? ""}` };
+        this.#vistoOffline = true;
+        this.#spedisci([
+          { nome: APERTO, dati: "" },
+          ...(chiave === undefined ? [] : this.#storiaInCache(chiave)),
+          ...storia.map(messaggio),
+          { nome: FINE_STORIA, dati: JSON.stringify(fine) },
+        ]);
+        storia = undefined;
+        continue;
+      }
+      if (arrivato.nome !== MESSAGGIO) {
+        this.#spedisci([arrivato]);
+        continue;
+      }
+      const evento = leggi(arrivato.dati);
+      if (evento === undefined) continue;
+      if (storia !== undefined) storia.push(rinumera(evento));
+      else this.#spedisci([messaggio(rinumera(evento))]);
     }
   }
 
@@ -166,7 +259,7 @@ class Seguita {
    * Un collegamento al flusso del centro, dall'apertura a quando cade. `inAggiunta` dice che la
    * pagina ha già la storia della cache: ciò che arriva di nuovo si aggiunge senza ricominciare.
    */
-  async #collegamento(inAggiunta: boolean): Promise<void> {
+  async #collegamento(inAggiunta: boolean, segnale: AbortSignal): Promise<void> {
     const copia = this.#chiave === undefined ? undefined : this.#cache.indice(this.#chiave);
     const domanda = copia === undefined ? "" : `?${new URLSearchParams({ dopo: String(copia.ultimo), versione: copia.versione }).toString()}`;
     this.#versione = copia?.versione;
@@ -176,7 +269,7 @@ class Seguita {
     // Senza una copia il centro manda tutto da capo, senza dirlo.
     let daCapo = copia === undefined;
 
-    for await (const arrivato of this.#centro.flusso(`${this.#base}/eventi${domanda}`, this.#segnale)) {
+    for await (const arrivato of this.#centro.flusso(`${this.#base}/eventi${domanda}`, segnale)) {
       if (arrivato.nome === AZZERA) {
         // La copia non vale più, oppure la Home è passata a un altro argomento: arriva una storia intera.
         storia = [];

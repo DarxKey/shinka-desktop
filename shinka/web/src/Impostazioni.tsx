@@ -85,15 +85,16 @@ export function PaginaImpostazioni({ menu }: { menu: ReactNode }): ReactNode {
                   Nella pagina <a href="#/vault">Vault</a> imposta il vault: scegli la frase che lo apre, e se vuoi collega Telegram.
                 </li>
               </ol>
+              {/* Finita la preparazione, la presentazione guidata dice che cosa sa fare e da dove si comincia. */}
               <a
                 className="pulsante"
-                href="#/"
+                href="#/presentazione"
                 onClick={() => {
                   sessionStorage.removeItem(CHIAVE_BENVENUTO);
                   setBenvenuto(false);
                 }}
               >
-                Ho finito: vai alla Home
+                Ho finito: com'è fatta Shinka
               </a>
             </section>
           )}

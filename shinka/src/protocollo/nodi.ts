@@ -18,6 +18,7 @@ import type { ComandoFile, RiferitoFile } from "./file-progetto.ts";
 import type { ComandoTerminale, RiferitoTerminale } from "./terminale.ts";
 import type { FileDiVersione } from "./versione.ts";
 import type { EsitoPreparazione, PreparazioneDelProgetto } from "./avvio-progetto.ts";
+import type { ComandoOffline, ConsegnaOffline } from "./offline.ts";
 
 /** Indirizzo, sul centro, a cui i nodi si collegano. */
 export const PERCORSO_COLLEGAMENTO = "/api/nodi/collegamento";
@@ -96,7 +97,9 @@ export type RiferitoDalNodo =
   /** L'applicazione di un progetto di questo ambiente. */
   | RiferitoApplicazione
   /** Ciò che il pannello File ha chiesto dei file di un progetto di questo ambiente. */
-  | RiferitoFile;
+  | RiferitoFile
+  /** Il lavoro fatto offline, consegnato al ritorno (ADR 0056). */
+  | ConsegnaOffline;
 
 /** Dal nodo al centro. */
 export type MessaggioNodo =
@@ -127,6 +130,8 @@ export type MessaggioNodo =
       centro?: string;
       /** Su Windows: vero se il nodo parte a ogni accesso, falso se no. Manca dove non si sa o non vale. */
       avvioConWindows?: boolean;
+      /** I progetti con lavoro fatto offline da consegnare (ADR 0056): finché non arriva, il centro non vi scrive. */
+      offline?: string[];
     }
   | { tipo: "battito" }
   | RiferitoDalNodo;
@@ -226,7 +231,9 @@ export type ComandoPerNodo =
   /** L'applicazione di un progetto di questo ambiente: avviarla, fermarla, sapere com'è. */
   | ComandoApplicazione
   /** I file di un progetto di questo ambiente, per il pannello File: solo lettura. */
-  | ComandoFile;
+  | ComandoFile
+  /** I progetti di questo ambiente e la memoria, per il lavoro offline, e le conferme della consegna (ADR 0056). */
+  | ComandoOffline;
 
 /** Dal centro al nodo. */
 export type MessaggioCentro =

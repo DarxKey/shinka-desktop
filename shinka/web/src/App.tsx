@@ -31,7 +31,9 @@ export function App(): ReactNode {
     );
   }
   if (accesso === undefined) return <Schermata>Carico…</Schermata>;
-  if (!accesso.configurato && accesso.primoAvvio === true) return <PrimoAvvio alSuccesso={() => void aggiorna()} />;
+  if (!accesso.configurato && accesso.primoAvvio === true) {
+    return <PrimoAvvio alSuccesso={() => void aggiorna()} />;
+  }
   if (!accesso.configurato) {
     return (
       <Schermata>

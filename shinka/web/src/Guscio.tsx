@@ -1,5 +1,6 @@
 import { ReteDiSicurezza } from "./ReteDiSicurezza.tsx";
 import { PaginaEstensione, TemiDelleEstensioni } from "./Interfaccia.tsx";
+import { PaginaPresentazione } from "./Presentazione.tsx";
 import { PaginaImpostazioni } from "./Impostazioni.tsx";
 import { PaginaCerca } from "./Cerca.tsx";
 import { PaginaArchiviazione, PaginaUso } from "./Uso.tsx";
@@ -278,6 +279,8 @@ export function Guscio({ allUscita }: { allUscita: () => void }): ReactNode {
     contenuto = <PaginaSicurezza menu={menu} ambienti={quadro.ambienti?.ambienti ?? []} />;
   } else if (vista.tipo === "impostazioni") {
     contenuto = <PaginaImpostazioni menu={menu} />;
+  } else if (vista.tipo === "presentazione") {
+    contenuto = <PaginaPresentazione menu={menu} />;
   } else if (vista.tipo === "interfaccia") {
     contenuto = <PaginaEstensione menu={menu} id={vista.id} pagina={vista.pagina} />;
   } else if (vista.tipo === "home") {

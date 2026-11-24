@@ -7,7 +7,7 @@
 
 import { readFile, stat } from "node:fs/promises";
 import { extname, join, normalize, sep } from "node:path";
-import { NonRaggiungibile, type Centro, type Metodo } from "./centro.ts";
+import { ErroreCentro, NonRaggiungibile, type Centro, type Metodo } from "./centro.ts";
 import { siTiene, type Immagini } from "./immagini.ts";
 
 export const SCHEMA = "shinka";
@@ -76,6 +76,57 @@ export interface PerLePagine {
    * scrive: le richieste che cambiano qualcosa non partono (ADR 0006).
    */
   soloLettura?(): string | undefined;
+  /** Lo sportello del nodo di questo PC, se le richieste di quel progetto vanno lì adesso (ADR 0011). */
+  sportelloPer?(idProgetto: string): Pick<Centro, "richiesta"> | undefined;
+  /** Senza centro, lo sportello del nodo di questo PC con il suo ambiente: lì nascono i progetti nuovi. */
+  offline?(): { idAmbiente: string; porta: Pick<Centro, "chiama">; aggiorna(): Promise<void> } | undefined;
+}
+
+/** Le rotte di un progetto che lo sportello del nodo sa servire. */
+const DEL_PROGETTO = /^\/api\/progetti\/([^/]+)\/(?:messaggi|interrompi|permessi\/[^/]+|domande\/[^/]+|impostazioni|azioni\/[^/]+|storia)$/;
+
+/** Gira allo sportello una richiesta della pagina, così com'è. */
+async function allOSportello(sportello: Pick<Centro, "richiesta">, richiesta: Request, metodo: string, percorso: string): Promise<Response> {
+  const intestazioni: Record<string, string> = {};
+  for (const nome of DA_PORTARE) {
+    const valore = richiesta.headers.get(nome);
+    if (valore !== null) intestazioni[nome] = valore;
+  }
+  try {
+    const corpo = metodo === "GET" || metodo === "HEAD" ? undefined : await richiesta.arrayBuffer();
+    const risposta = await sportello.richiesta(metodo as Metodo, percorso, {
+      intestazioni,
+      segnale: richiesta.signal,
+      ...(corpo === undefined || corpo.byteLength === 0 ? {} : { corpo }),
+    });
+    const riportate = new Headers();
+    for (const [nome, valore] of risposta.headers) if (!DA_NON_RIPORTARE.has(nome.toLowerCase())) riportate.set(nome, valore);
+    return new Response(risposta.status === 204 || metodo === "HEAD" ? null : risposta.body, { status: risposta.status, headers: riportate });
+  } catch {
+    if (richiesta.signal.aborted) return new Response(null, { status: 499 });
+    return json(503, { errore: "Il nodo di Shinka di questo PC non risponde." });
+  }
+}
+
+/** Senza centro, la scheda e la nascita di un progetto nuovo: solo nell'ambiente di questo PC, con nome e brief. */
+async function progettoNuovoOffline(offline: NonNullable<ReturnType<NonNullable<PerLePagine["offline"]>>>, richiesta: Request, metodo: string): Promise<Response> {
+  if (metodo === "GET") return json(200, { impostazioni: { permessi: "modifiche-libere" } });
+  if (metodo !== "POST") return json(405, { errore: "Metodo non ammesso." });
+  let corpo: { nome?: unknown; brief?: unknown; idAmbiente?: unknown };
+  try {
+    corpo = (await richiesta.json()) as typeof corpo;
+  } catch {
+    return json(400, { errore: "Richiesta non valida." });
+  }
+  if (corpo.idAmbiente !== offline.idAmbiente) return json(409, { errore: "Senza collegamento con il centro un progetto nasce solo su questo PC." });
+  try {
+    const nato = await offline.porta.chiama<{ id: string }>("POST", "/api/progetti", { nome: corpo.nome, brief: corpo.brief }, richiesta.signal);
+    // La barra laterale lo deve avere quando la pagina lo apre.
+    await offline.aggiorna();
+    return json(200, { idProgetto: nato.id });
+  } catch (errore) {
+    return json(errore instanceof ErroreCentro ? errore.stato : 503, { errore: errore instanceof Error ? errore.message : "Il progetto non è nato." });
+  }
 }
 
 export function rispondiAllePagine(opzioni: PerLePagine): (richiesta: Request) => Promise<Response> {
@@ -135,6 +186,19 @@ async function api(opzioni: PerLePagine, richiesta: Request, indirizzo: URL): Pr
   if (percorso === "/api/accesso" || percorso === "/api/dispositivi") return json(404, { errore: "Da qui l'accesso si fa dalla schermata dell'app." });
   if (centro === undefined) return json(401, { errore: "Questo PC non è collegato al centro." });
   if (!METODI.has(metodo)) return json(405, { errore: "Metodo non ammesso." });
+
+  // I progetti di questo PC, quando vanno mandati avanti dal suo nodo: il centro non c'entra (ADR 0011).
+  const delProgetto = DEL_PROGETTO.exec(percorso)?.[1];
+  let idProgetto: string | undefined;
+  try {
+    idProgetto = delProgetto === undefined ? undefined : decodeURIComponent(delProgetto);
+  } catch {
+    idProgetto = undefined;
+  }
+  const sportello = idProgetto === undefined ? undefined : opzioni.sportelloPer?.(idProgetto);
+  if (sportello !== undefined) return await allOSportello(sportello, richiesta, metodo, `${percorso}${indirizzo.search}`);
+  const offline = percorso === "/api/nuovo-progetto" ? opzioni.offline?.() : undefined;
+  if (offline !== undefined) return await progettoNuovoOffline(offline, richiesta, metodo);
   const fermo = metodo === "GET" || metodo === "HEAD" ? undefined : opzioni.soloLettura?.();
   if (fermo !== undefined) return json(409, { errore: fermo });
 

@@ -80,6 +80,8 @@ export interface VoceProgetto extends Progetto, Partial<IndiceArchivio> {
   nomeAmbiente: string;
   /** La condizione del progetto, con quella delle sue chat parallele. */
   condizione: CondizioneProgetto;
+  /** Vero se il lavoro fatto offline nel suo ambiente sta arrivando: finché non arriva, non gli si scrive (ADR 0056). */
+  offlineInArrivo?: true;
   /** Le chat parallele aperte (ADR 0052), con la condizione di ciascuna. */
   chat?: { numero: number; condizione: CondizioneProgetto }[];
 }

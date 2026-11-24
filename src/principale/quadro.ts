@@ -51,6 +51,7 @@ export class Quadro {
   readonly #ascoltatori = new Set<Ascoltatore>();
   readonly #fine = new AbortController();
   #collegato = false;
+  #trasforma: ((messaggio: MessaggioDelFlusso) => MessaggioDelFlusso) | undefined;
 
   constructor(opzioni: {
     centro: Pick<Centro, "flusso">;
@@ -82,9 +83,26 @@ export class Quadro {
 
   /** Una pagina guarda il quadro: riceve subito l'ultima forma vista, poi ogni cambiamento. */
   segui(ascoltatore: Ascoltatore): () => void {
-    for (const messaggio of this.#cache.quadro()) ascoltatore(messaggio);
+    for (const messaggio of this.#cache.quadro()) ascoltatore(this.#vista(messaggio));
     this.#ascoltatori.add(ascoltatore);
     return () => this.#ascoltatori.delete(ascoltatore);
+  }
+
+  /**
+   * Cambia come le pagine vedono il quadro, senza toccare ciò che è in cache: offline, i progetti e
+   * gli ambienti come li dice lo sportello del nodo di questo PC. Le pagine ricevono subito
+   * progetti e ambienti nella forma nuova.
+   */
+  trasforma(trasformazione: ((messaggio: MessaggioDelFlusso) => MessaggioDelFlusso) | undefined): void {
+    this.#trasforma = trasformazione;
+    for (const messaggio of this.#cache.quadro()) {
+      if (messaggio.nome !== "progetti" && messaggio.nome !== "ambienti") continue;
+      for (const ascoltatore of this.#ascoltatori) ascoltatore(this.#vista(messaggio));
+    }
+  }
+
+  #vista(messaggio: MessaggioDelFlusso): MessaggioDelFlusso {
+    return this.#trasforma === undefined ? messaggio : this.#trasforma(messaggio);
   }
 
   /** La conversazione che la Home ha aperta adesso, per quanto ne sa il quadro. */
@@ -140,7 +158,7 @@ export class Quadro {
     if (messaggio.nome === "progetti") this.#progetti(leggi<StatoProgetti>(messaggio.dati));
     if (messaggio.nome === "argomenti") this.#argomenti(leggi<StatoArgomenti>(messaggio.dati));
     if (messaggio.nome === "home") this.#home(leggi<{ argomento?: { id?: string; ultimo?: number; versione?: string } }>(messaggio.dati));
-    for (const ascoltatore of this.#ascoltatori) ascoltatore(messaggio);
+    for (const ascoltatore of this.#ascoltatori) ascoltatore(this.#vista(messaggio));
   }
 
   #progetti(stato: StatoProgetti | undefined): void {

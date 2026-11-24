@@ -6994,3 +6994,104 @@ kbd {
   flex-basis: 100%;
   margin: 0;
 }
+
+/* La presentazione guidata: le tappe in alto, una scheda per volta, i pulsanti in fondo. */
+.pagina-presentazione {
+  display: grid;
+  gap: var(--s-4);
+  max-width: 640px;
+}
+
+.tappe-presentazione {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tappe-presentazione .tappa {
+  width: 28px;
+  height: 6px;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: var(--bordo);
+}
+
+.tappe-presentazione .tappa.attuale {
+  background: var(--accento);
+}
+
+.scheda-presentazione {
+  display: grid;
+  gap: var(--s-2);
+  padding: var(--s-4);
+  border: 1px solid var(--bordo);
+  border-radius: var(--raggio);
+  background: var(--superficie);
+}
+
+.scheda-presentazione h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.scheda-presentazione p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.prova-presentazione {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--raggio);
+  background: var(--fumetto);
+}
+
+.prova-presentazione q {
+  flex: 1;
+  min-width: 12em;
+  font-style: italic;
+}
+
+.presentazione-pulsanti {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.presentazione-pulsanti .spazio {
+  flex: 1;
+}
+
+/*
+ * La chat di un progetto con il pannello aperto può restare stretta: allora la testata tiene il
+ * titolo e gli strumenti del lavoro, e lascia andare ciò che si raggiunge anche altrove (Esporta, la
+ * conversazione affiancata, la parola della spia, che resta un pallino).
+ */
+.affiancati.aperto > .app.chat {
+  container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+  .testata .menu-esporta,
+  .testata .menu-affianca,
+  .testata .in-sfondo {
+    display: none;
+  }
+
+  .testata .spia {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .testata .sottotitolo {
+    display: none;
+  }
+}

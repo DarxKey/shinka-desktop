@@ -14,10 +14,24 @@ import { Quadro } from "./quadro.ts";
 import { cercaInCache, type Trovato } from "./ricerca.ts";
 import { Seguite } from "./seguite.ts";
 import { Sincronia, type StatoSincronia } from "./sincronia.ts";
+import { SportelloDiQui, quadroOffline, type OpzioniSportello } from "./sportello.ts";
 
 /** Com'è il collegamento, per la pagina: se il centro risponde e quanto manca alla cache. */
 export interface Situazione extends StatoSincronia {
   collegato: boolean;
+  /** Senza centro, il nome dell'ambiente di questo PC, i cui progetti si mandano avanti dal suo nodo (ADR 0011). */
+  offline?: string;
+}
+
+/** Il progetto di un percorso di base, se è quello di un progetto. */
+function progettoDellaBase(base: string): string | undefined {
+  const trovato = /^\/api\/progetti\/([^/?#]+)$/.exec(base);
+  if (trovato?.[1] === undefined) return undefined;
+  try {
+    return decodeURIComponent(trovato[1]);
+  } catch {
+    return undefined;
+  }
 }
 
 /** Il file della cache di un centro: ogni centro ha il suo, e dal nome non si risale all'indirizzo. */
@@ -45,6 +59,8 @@ export class Collegamento {
   readonly quadro: Quadro;
   readonly seguite: Seguite;
   readonly immagini: Immagini;
+  /** Lo sportello del nodo di questo PC, per lavorare ai suoi progetti senza centro. */
+  readonly sportello: SportelloDiQui;
   readonly #allaSituazione: (situazione: Situazione) => void;
   #chiuso = false;
 
@@ -57,6 +73,10 @@ export class Collegamento {
     /** Il centro ha rifiutato il gettone. */
     alRifiuto: () => void;
     allaSituazione: (situazione: Situazione) => void;
+    /** Come si chiede allo sportello del nodo di questo PC; senza, come al centro. */
+    chiediLocale?: Chiedi;
+    /** Dove trovare lo sportello, nelle prove. */
+    sportello?: Pick<OpzioniSportello, "file" | "indirizzo" | "intervalloMs">;
   }) {
     this.dispositivo = opzioni.dispositivo;
     this.#allaSituazione = opzioni.allaSituazione;
@@ -73,13 +93,49 @@ export class Collegamento {
     this.cache = Cache.apri(fileDellaCache(opzioni.cartella, opzioni.dispositivo.centro));
     this.immagini = new Immagini(cartellaDelleImmagini(opzioni.cartella, opzioni.dispositivo.centro));
     this.sincronia = new Sincronia({ centro: this.centro, cache: this.cache, alloStato: () => this.#avvisa() });
-    this.quadro = new Quadro({ centro: this.centro, cache: this.cache, sincronia: this.sincronia, alCollegamento: () => this.#avvisa() });
-    this.seguite = new Seguite({ centro: this.centro, cache: this.cache, quadro: this.quadro });
+    this.quadro = new Quadro({ centro: this.centro, cache: this.cache, sincronia: this.sincronia, alCollegamento: () => this.#ricalcola() });
+    this.sportello = new SportelloDiQui({ chiedi: opzioni.chiediLocale ?? opzioni.chiedi, programma: opzioni.programma, ...opzioni.sportello, alCambio: () => this.#ricalcola() });
+    this.seguite = new Seguite({
+      centro: this.centro,
+      cache: this.cache,
+      quadro: this.quadro,
+      sportello: (base) => {
+        const idProgetto = progettoDellaBase(base);
+        return idProgetto === undefined ? undefined : this.portaPer(idProgetto);
+      },
+    });
     this.quadro.avvia();
+    this.sportello.avvia();
   }
 
   get situazione(): Situazione {
-    return { collegato: this.quadro.collegato, ...this.sincronia.stato };
+    const nome = this.offline ? this.sportello.stato?.nome : undefined;
+    return { collegato: this.quadro.collegato, ...this.sincronia.stato, ...(nome === undefined ? {} : { offline: nome }) };
+  }
+
+  /** Vero se il centro non risponde e il nodo di questo PC, che non lo raggiunge nemmeno lui, ha lo sportello aperto. */
+  get offline(): boolean {
+    const stato = this.sportello.stato;
+    return !this.quadro.collegato && stato !== undefined && !stato.collegato;
+  }
+
+  /**
+   * Lo sportello, se le richieste di questo progetto vanno lì adesso: offline, per i progetti del
+   * nodo di questo PC; con il centro tornato, finché il lavoro cominciato offline non è finito.
+   */
+  portaPer(idProgetto: string): Centro | undefined {
+    const progetto = this.sportello.progetto(idProgetto);
+    if (progetto === undefined) return undefined;
+    return this.offline || progetto.occupato ? this.sportello.porta : undefined;
+  }
+
+  /** Il centro o lo sportello sono cambiati: il quadro della pagina e le conversazioni seguite si adeguano. */
+  #ricalcola(): void {
+    if (this.#chiuso) return;
+    const stato = this.sportello.stato;
+    this.quadro.trasforma(this.offline && stato !== undefined ? (messaggio) => quadroOffline(messaggio, stato) : undefined);
+    this.seguite.cambiaStrada();
+    this.#avvisa();
   }
 
   /** Cerca nelle conversazioni tenute qui; `completa` è vero se non ne manca nessuna da scaricare. */
@@ -96,6 +152,7 @@ export class Collegamento {
   chiudi(): void {
     if (this.#chiuso) return;
     this.#chiuso = true;
+    this.sportello.chiudi();
     this.seguite.chiudi();
     this.quadro.chiudi();
     this.sincronia.chiudi();

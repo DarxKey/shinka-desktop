@@ -34,7 +34,9 @@ export type Vista =
   /** Il motore delle conversazioni nuove e gli accessi dei motori negli ambienti. */
   | { tipo: "impostazioni" }
   /** Una pagina di un'estensione dell'interfaccia (ADR 0054). */
-  | { tipo: "interfaccia"; id: string; pagina: string };
+  | { tipo: "interfaccia"; id: string; pagina: string }
+  /** La presentazione guidata di Shinka. */
+  | { tipo: "presentazione" };
 
 const RADICI = { progetto: "progetti", argomento: "argomenti" } as const;
 
@@ -52,6 +54,7 @@ export function vistaDa(frammento: string): Vista {
   if (frammento === "#/archiviazione") return { tipo: "archiviazione" };
   if (frammento === "#/sicurezza") return { tipo: "sicurezza" };
   if (frammento === "#/impostazioni") return { tipo: "impostazioni" };
+  if (frammento === "#/presentazione") return { tipo: "presentazione" };
   const elaborato = /^#\/elaborati\/(.+)$/.exec(frammento);
   if (elaborato?.[1] !== undefined) {
     try {
@@ -119,6 +122,8 @@ export function frammentoDi(vista: Vista): string {
       return "#/sicurezza";
     case "impostazioni":
       return "#/impostazioni";
+    case "presentazione":
+      return "#/presentazione";
     case "interfaccia":
       return `#/interfaccia/${encodeURIComponent(vista.id)}/${vista.pagina}`;
     default:

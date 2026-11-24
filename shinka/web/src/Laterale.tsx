@@ -269,6 +269,7 @@ function MenuPagine({
     { vista: { tipo: "estensioni" }, nome: "Estensioni", accanto: estensioni !== undefined && <span className="quanti">{estensioni}</span> },
     { vista: { tipo: "vault" }, nome: "Vault", accanto: vault !== undefined && <span className="quanti">{vault}</span> },
     { vista: { tipo: "impostazioni" }, nome: "Impostazioni" },
+    { vista: { tipo: "presentazione" }, nome: "Presentazione" },
     // Le pagine delle estensioni dell'interfaccia (ADR 0054).
     ...pagineDelleEstensioni(quadro, "menu").map((una) => ({ vista: { tipo: "interfaccia" as const, id: una.id, pagina: una.pagina }, nome: una.titolo })),
   ];

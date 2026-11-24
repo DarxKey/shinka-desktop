@@ -270,6 +270,8 @@ function ascoltaLaPagina(): void {
         cartella = undefined;
       }
     }
+    // Un progetto nato offline il centro ancora non lo conosce: la sua cartella la sa lo sportello.
+    if (cartella === undefined && typeof idProgetto === "string") cartella = collegamento?.sportello.progetto(idProgetto)?.cartella;
     const aperto = terminali.apri(
       id,
       { ...(typeof scelta === "string" ? { shell: scelta } : {}), ...(cartella === undefined ? {} : { cartella }), colonne: Number(colonne), righe: Number(righe) },
@@ -572,6 +574,15 @@ if (!app.requestSingleInstanceLock()) {
         centro: () => collegamento?.centro,
         immagini: () => collegamento?.immagini,
         cerca: (cercato) => collegamento?.cerca(cercato),
+        // Senza centro i progetti di questo PC si mandano avanti dal suo nodo (ADR 0011).
+        sportelloPer: (idProgetto) => collegamento?.portaPer(idProgetto),
+        offline: () => {
+          const aperto = collegamento;
+          const stato = aperto?.sportello.stato;
+          const porta = aperto?.sportello.porta;
+          if (aperto === undefined || !aperto.offline || stato === undefined || porta === undefined) return undefined;
+          return { idAmbiente: stato.idAmbiente, porta, aggiorna: () => aperto.sportello.aggiorna() };
+        },
         esci,
         soloLettura: () =>
           aggiornamenti.soloLettura ? "Il centro è stato aggiornato e questa versione dell'app non lo capisce più: finché non si aggiorna, puoi solo leggere." : undefined,

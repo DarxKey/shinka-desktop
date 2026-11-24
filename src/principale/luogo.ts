@@ -11,7 +11,7 @@ import type { StatoProgetti } from "../../shinka/src/protocollo/progetti.ts";
 import { indirizzoDelCentro } from "./centro.ts";
 
 /** Dove il nodo tiene i suoi dati: dove Shinka lo installa di solito, o nella cartella detta da `SHINKA_CARTELLA`. */
-function datiDelNodo(ambiente: NodeJS.ProcessEnv, casa: string): string {
+export function datiDelNodo(ambiente: NodeJS.ProcessEnv, casa: string): string {
   const cartella = ambiente.SHINKA_CARTELLA !== undefined && ambiente.SHINKA_CARTELLA !== "" ? ambiente.SHINKA_CARTELLA : join(casa, "Shinka", "nodo");
   return join(cartella, "dati-nodo");
 }
